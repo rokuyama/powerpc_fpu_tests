@@ -109,7 +109,7 @@ fsel_qnan_s(void)
 		"fsel	%[d],%[a],%[c],%[b];"
 		"mffs	%[fpscr];"
 		: [d] "=f" (d), [fpscr] "=f" (fpscr.fp)
-		: [a] "f" (a), [c] "f" (c), [b] "f" (b)
+		: [a] "f" (a.fp), [c] "f" (c), [b] "f" (b)
 	);
 
 	return fpscr.word[1];
