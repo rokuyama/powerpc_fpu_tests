@@ -413,6 +413,132 @@ set_fx(void)
 	printf("%s: passed\n", __func__);
 }
 
+static const char *
+str_rn(int rn)
+{
+	switch (rn) {
+	case 0:
+		return "RN";
+	case 1:
+		return "RZ";
+	case 2:
+		return "RP";
+	case 3:
+		return "RM";
+	}
+	return NULL;
+}
+
+static void
+fctiw(double val, int exp_rn, int exp_rz, int exp_rp, int exp_rm)
+{
+	volatile double b, d1, d2;
+	int rn, exp[4], i, j;
+	int *ip = &i, *jp = &j;
+
+	set_fpscr(false, 0xffffffff);
+	set_fpscr(true, FPSCR_ENABLE_MASK);
+	set_msr(false, MSR_FE_MASK);
+
+	exp[0] = exp_rn;
+	exp[1] = exp_rz;
+	exp[2] = exp_rp;
+	exp[3] = exp_rm;
+
+	for (rn = 0; rn < 4; rn++) {
+		set_fpscr(false, FPSCR_RN);
+		set_fpscr(true, rn);
+
+		b = val;
+		asm __volatile (
+			"fctiw	%[d1],%[b];"
+			"stfiwx	%[d1],0,%[ip];"
+			"fctiwz	%[d2],%[b];"
+			"stfiwx	%[d2],0,%[jp];"
+			: [d1] "=f" (d1), [d2] "=f" (d2)
+			: [b] "f" (b), [ip] "r" (ip), [jp] "r" (jp)
+			: "memory"
+		);
+		if (i != exp[rn])
+			printf("%s: FAILED %f (%s) -> "
+			    "%d (0x%08x) != %d (0x%08x)\n",
+			    __func__, val, str_rn(rn),
+			    i, i, exp[rn], exp[rn]);
+#if 0
+		else
+			printf("%s: PASSED %f (%s) -> "
+			    "%d (0x%08x)\n",
+			    __func__, val, str_rn(rn), i, i);
+#endif
+		if (j != exp_rz)
+			printf("%s: FAILED %f (z:%s) -> "
+			    "%d (0x%08x) != %d (0x%08x)\n",
+			    __func__, val, str_rn(rn),
+			    j, j, exp_rz, exp_rz);
+#if 0
+		else
+			printf("%s: PASSED %f (z:%s) -> "
+			    "%d (0x%08x)\n",
+			    __func__, val, str_rn(rn), j, j);
+#endif
+	}
+}
+
+static void
+fctid(double val, int64_t exp_rn, int64_t exp_rz, int64_t exp_rp, int64_t exp_rm)
+{
+	volatile double b, d1, d2;
+	int64_t rn, exp[4], i, j;
+	int64_t *ip = &i, *jp = &j;
+
+	set_fpscr(false, 0xffffffff);
+	set_fpscr(true, FPSCR_ENABLE_MASK);
+	set_msr(false, MSR_FE_MASK);
+
+	exp[0] = exp_rn;
+	exp[1] = exp_rz;
+	exp[2] = exp_rp;
+	exp[3] = exp_rm;
+
+	for (rn = 0; rn < 4; rn++) {
+		set_fpscr(false, FPSCR_RN);
+		set_fpscr(true, rn);
+
+		b = val;
+		asm __volatile (
+			"fctid	%[d1],%[b];"
+			"stfd	%[d1],0(%[ip]);"
+			"fctidz	%[d2],%[b];"
+			"stfd	%[d2],0(%[jp]);"
+			: [d1] "=f" (d1), [d2] "=f" (d2)
+			: [b] "f" (b), [ip] "r" (ip), [jp] "r" (jp)
+			: "memory"
+		);
+		if (i != exp[rn])
+			printf("%s: FAILED %f (%s) -> "
+			    "%lld (0x%016llx) != %lld (0x%016llx)\n",
+			    __func__, val, str_rn(rn),
+			    i, i, exp[rn], exp[rn]);
+#if 0
+		else
+			printf("%s: PASSED %f (%s) -> "
+			    "%lld (0x%016llx)\n",
+			    __func__, val, str_rn(rn), i, i);
+#endif
+		if (j != exp_rz)
+			printf("%s: FAILED %f (z:%s) -> "
+			    "%lld (0x%016llx) != %lld (0x%016llx)\n",
+			    __func__, val, str_rn(rn),
+			    j, j, exp_rz, exp_rz);
+#if 0
+		else
+			printf("%s: PASSED %f (z:%s) -> "
+			    "%lld (0x%016llx)\n",
+			    __func__, val, str_rn(rn), j, j);
+#endif
+	}
+}
+
 int
 main(void)
 {
@@ -442,11 +568,46 @@ main(void)
 
 	/* XXX sfp overflow */
 
+#if 1
 	TEST_RD(fsel_snan,	0.0);
 	TEST_RD(fsel_qnan,	0.0);
 	TEST_RD(fsel_mzero,	1.0);
+#endif
 
 	set_fx();
+
+//	fctiw(double val, int exp_rn, int exp_rz, int exp_rp, int rexp_rm)
+	fctiw(0.0, 0, 0, 0, 0);
+	fctiw(0.6, 1, 0, 1, 0);
+	fctiw(0.5, 0, 0, 1, 0);
+	fctiw(0.4, 0, 0, 1, 0);
+	fctiw(-0.6, -1, 0, 0, -1);
+	fctiw(-0.5, 0, 0, 0, -1);
+	fctiw(-0.4, 0, 0, 0, -1);
+	fctiw(1.6, 2, 1, 2, 1);
+	fctiw(1.5, 2, 1, 2, 1);
+	fctiw(1.4, 1, 1, 2, 1);
+	fctiw(-1.6, -2, -1, -1, -2);
+	fctiw(-1.5, -2, -1, -1, -2);
+	fctiw(-1.4, -1, -1, -1, -2);
+
+#if 1
+	fctid(0.0, 0, 0, 0, 0);
+	fctid(0.6, 1, 0, 1, 0);
+	fctid(0.5, 0, 0, 1, 0);
+	fctid(0.4, 0, 0, 1, 0);
+	fctid(-0.6, -1, 0, 0, -1);
+	fctid(-0.5, 0, 0, 0, -1);
+	fctid(-0.4, 0, 0, 0, -1);
+	fctid(1.6, 2, 1, 2, 1);
+	fctid(1.5, 2, 1, 2, 1);
+	fctid(1.4, 1, 1, 2, 1);
+	fctid(-1.6, -2, -1, -1, -2);
+	fctid(-1.5, -2, -1, -1, -2);
+	fctid(-1.4, -1, -1, -1, -2);
+	fctid((double)0x0123456700000000LL, 0x0123456700000000LL,
+	    0x0123456700000000LL, 0x0123456700000000LL, 0x0123456700000000LL);
+#endif
 
 	return 0;
 }

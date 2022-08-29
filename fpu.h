@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 
+#include <stdio.h>
+
 /* Double-Precision in FPR */
 
 #define	FP_MASK_SIGN	__BIT(63)
@@ -83,11 +85,11 @@
 
 #define	FPSCR_NI	__BIT(2)
 
-#define	FPSCR_RN	__BIT(1, 0)
-#define	 RN_NEAR	0x0ULL
-#define	 RN_ZERO	0x1ULL
-#define	 RN_PINF	0x2ULL
-#define	 RN_MINF	0x3ULL
+#define	FPSCR_RN	__BITS(1, 0)
+#define	 RN_RN		0x0ULL
+#define	 RN_RZ		0x1ULL
+#define	 RN_RP		0x2ULL
+#define	 RN_RM		0x3ULL
 
 #define	FPSCR_ENABLE_MASK						\
     (FPSCR_VE | FPSCR_OE | FPSCR_UE | FPSCR_ZE | FPSCR_XE)
@@ -166,6 +168,7 @@ set_fpscr(bool on, uint32_t mask)
 	uint32_t fpscr;
 
 	fpscr = mffs();
+//printf("%s 0x%08x\n", __func__, fpscr);
 	if (on)
 		fpscr |= mask;
 	else
