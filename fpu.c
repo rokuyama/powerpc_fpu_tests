@@ -472,7 +472,7 @@ fctiw(double val, int exp_rn, int exp_rz, int exp_rp, int exp_rm)
 			    "%d (0x%08x)\n",
 			    __func__, val, str_rn(rn), i, i);
 #endif
-#if 1
+#if 0
 		printf("%s: %f -> fpscr 0x%08x\n",
 		    __func__, val, fpscr.word[1]);
 #endif
@@ -501,7 +501,7 @@ fctiw(double val, int exp_rn, int exp_rz, int exp_rp, int exp_rm)
 			    "%d (0x%08x)\n",
 			    __func__, val, str_rn(rn), i, i);
 #endif
-#if 1
+#if 0
 		printf("%sz: %f -> fpscr 0x%08x\n",
 		    __func__, val, fpscr.word[1]);
 #endif
@@ -551,7 +551,7 @@ fctid(double val, int64_t exp_rn, int64_t exp_rz, int64_t exp_rp, int64_t exp_rm
 			    "%lld (0x%016llx)\n",
 			    __func__, val, str_rn(rn), i, i);
 #endif
-#if 1
+#if 0
 		printf("%s: %f -> fpscr 0x%08x\n",
 		    __func__, val, fpscr.word[1]);
 #endif
@@ -581,7 +581,7 @@ fctid(double val, int64_t exp_rn, int64_t exp_rz, int64_t exp_rp, int64_t exp_rm
 			    "%lld (0x%016llx)\n",
 			    __func__, val, str_rn(rn), i, i);
 #endif
-#if 1
+#if 0
 		printf("%sz: %f -> fpscr 0x%08x\n",
 		    __func__, val, fpscr.word[1]);
 #endif
