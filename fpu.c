@@ -432,12 +432,13 @@ str_rn(int rn)
 static void
 fctiw(double val, int exp_rn, int exp_rz, int exp_rp, int exp_rm)
 {
-	volatile double b, d1, d2;
-	int rn, exp[4], i, j;
-	int *ip = &i, *jp = &j;
+	volatile double b, d;
+	fp fpscr;
+	int rn, exp[4], i;
+	int *ip = &i;
 
 	set_fpscr(false, 0xffffffff);
-	set_fpscr(true, FPSCR_ENABLE_MASK);
+	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */
 	set_msr(false, MSR_FE_MASK);
 
 	exp[0] = exp_rn;
@@ -446,17 +447,18 @@ fctiw(double val, int exp_rn, int exp_rz, int exp_rp, int exp_rm)
 	exp[3] = exp_rm;
 
 	for (rn = 0; rn < 4; rn++) {
-		set_fpscr(false, FPSCR_RN);
+		set_fpscr(false, 0xffffffff);
+		set_fpscr(false, FPSCR_ENABLE_MASK);
 		set_fpscr(true, rn);
-
+		i = 0;
+		fpscr.bin = 0;
 		b = val;
 		asm __volatile (
-			"fctiw	%[d1],%[b];"
-			"stfiwx	%[d1],0,%[ip];"
-			"fctiwz	%[d2],%[b];"
-			"stfiwx	%[d2],0,%[jp];"
-			: [d1] "=f" (d1), [d2] "=f" (d2)
-			: [b] "f" (b), [ip] "r" (ip), [jp] "r" (jp)
+			"fctiw	%[d],%[b];"
+			"mffs	%[fpscr];"
+			"stfiwx	%[d],0,%[ip];"
+			: [d] "=f" (d), [fpscr] "=f" (fpscr.fp)
+			: [b] "f" (b), [ip] "r" (ip)
 			: "memory"
 		);
 		if (i != exp[rn])
@@ -470,16 +472,38 @@ fctiw(double val, int exp_rn, int exp_rz, int exp_rp, int exp_rm)
 			    "%d (0x%08x)\n",
 			    __func__, val, str_rn(rn), i, i);
 #endif
-		if (j != exp_rz)
+#if 1
+		printf("%s: %f -> fpscr 0x%08x\n",
+		    __func__, val, fpscr.word[1]);
+#endif
+
+		set_fpscr(false, 0xffffffff);
+		set_fpscr(false, FPSCR_ENABLE_MASK);
+		set_fpscr(true, rn);
+		i = 0;
+		b = val;
+		asm __volatile (
+			"fctiwz	%[d],%[b];"
+			"mffs	%[fpscr];"
+			"stfiwx	%[d],0,%[ip];"
+			: [d] "=f" (d), [fpscr] "=f" (fpscr.fp)
+			: [b] "f" (b), [ip] "r" (ip)
+			: "memory"
+		);
+		if (i != exp_rz)
 			printf("%s: FAILED %f (z:%s) -> "
 			    "%d (0x%08x) != %d (0x%08x)\n",
 			    __func__, val, str_rn(rn),
-			    j, j, exp_rz, exp_rz);
+			    i, i, exp_rz, exp_rz);
 #if 0
 		else
 			printf("%s: PASSED %f (z:%s) -> "
 			    "%d (0x%08x)\n",
-			    __func__, val, str_rn(rn), j, j);
+			    __func__, val, str_rn(rn), i, i);
+#endif
+#if 1
+		printf("%sz: %f -> fpscr 0x%08x\n",
+		    __func__, val, fpscr.word[1]);
 #endif
 	}
 }
@@ -487,12 +511,13 @@ fctiw(double val, int exp_rn, int exp_rz, int exp_rp, int exp_rm)
 static void
 fctid(double val, int64_t exp_rn, int64_t exp_rz, int64_t exp_rp, int64_t exp_rm)
 {
-	volatile double b, d1, d2;
-	int64_t rn, exp[4], i, j;
-	int64_t *ip = &i, *jp = &j;
+	volatile double b, d;
+	fp fpscr;
+	int64_t rn, exp[4], i;
+	int64_t *ip = &i;
 
 	set_fpscr(false, 0xffffffff);
-	set_fpscr(true, FPSCR_ENABLE_MASK);
+	set_fpscr(false, FPSCR_ENABLE_MASK);
 	set_msr(false, MSR_FE_MASK);
 
 	exp[0] = exp_rn;
@@ -501,17 +526,18 @@ fctid(double val, int64_t exp_rn, int64_t exp_rz, int64_t exp_rp, int64_t exp_rm
 	exp[3] = exp_rm;
 
 	for (rn = 0; rn < 4; rn++) {
-		set_fpscr(false, FPSCR_RN);
+		set_fpscr(false, 0xffffffff);
+		set_fpscr(false, FPSCR_ENABLE_MASK);
 		set_fpscr(true, rn);
-
+		i = 0;
+		fpscr.bin = 0;
 		b = val;
 		asm __volatile (
-			"fctid	%[d1],%[b];"
-			"stfd	%[d1],0(%[ip]);"
-			"fctidz	%[d2],%[b];"
-			"stfd	%[d2],0(%[jp]);"
-			: [d1] "=f" (d1), [d2] "=f" (d2)
-			: [b] "f" (b), [ip] "r" (ip), [jp] "r" (jp)
+			"fctid	%[d],%[b];"
+			"mffs	%[fpscr];"
+			"stfd	%[d],0(%[ip]);"
+			: [d] "=f" (d), [fpscr] "=f" (fpscr.fp)
+			: [b] "f" (b), [ip] "r" (ip)
 			: "memory"
 		);
 		if (i != exp[rn])
@@ -525,16 +551,39 @@ fctid(double val, int64_t exp_rn, int64_t exp_rz, int64_t exp_rp, int64_t exp_rm
 			    "%lld (0x%016llx)\n",
 			    __func__, val, str_rn(rn), i, i);
 #endif
-		if (j != exp_rz)
+#if 1
+		printf("%s: %f -> fpscr 0x%08x\n",
+		    __func__, val, fpscr.word[1]);
+#endif
+
+		set_fpscr(false, 0xffffffff);
+		set_fpscr(false, FPSCR_ENABLE_MASK);
+		set_fpscr(true, rn);
+		i = 0;
+		fpscr.bin = 0;
+		b = val;
+		asm __volatile (
+			"fctidz	%[d],%[b];"
+			"mffs	%[fpscr];"
+			"stfd	%[d],0(%[ip]);"
+			: [d] "=f" (d), [fpscr] "=f" (fpscr.fp)
+			: [b] "f" (b), [ip] "r" (ip)
+			: "memory"
+		);
+		if (i != exp_rz)
 			printf("%s: FAILED %f (z:%s) -> "
 			    "%lld (0x%016llx) != %lld (0x%016llx)\n",
 			    __func__, val, str_rn(rn),
-			    j, j, exp_rz, exp_rz);
+			    i, i, exp_rz, exp_rz);
 #if 0
 		else
 			printf("%s: PASSED %f (z:%s) -> "
 			    "%lld (0x%016llx)\n",
-			    __func__, val, str_rn(rn), j, j);
+			    __func__, val, str_rn(rn), i, i);
+#endif
+#if 1
+		printf("%sz: %f -> fpscr 0x%08x\n",
+		    __func__, val, fpscr.word[1]);
 #endif
 	}
 }
@@ -542,6 +591,7 @@ fctid(double val, int64_t exp_rn, int64_t exp_rz, int64_t exp_rp, int64_t exp_rm
 int
 main(void)
 {
+	fp fp;
 
 	/* expected values were taken from MPC8245 (603e) */
 
@@ -576,7 +626,6 @@ main(void)
 
 	set_fx();
 
-//	fctiw(double val, int exp_rn, int exp_rz, int exp_rp, int rexp_rm)
 	fctiw(0.0, 0, 0, 0, 0);
 	fctiw(0.6, 1, 0, 1, 0);
 	fctiw(0.5, 0, 0, 1, 0);
@@ -590,8 +639,20 @@ main(void)
 	fctiw(-1.6, -2, -1, -1, -2);
 	fctiw(-1.5, -2, -1, -1, -2);
 	fctiw(-1.4, -1, -1, -1, -2);
+	fctiw((double)__BIT(32),
+	    0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff);
+	fctiw(-(double)__BIT(32),
+	    __BIT(31), __BIT(31), __BIT(31), __BIT(31));
+	fp.bin = FP_PINF;
+	fctiw(fp.fp, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff);
+	fp.bin = FP_MINF;
+	fctiw(fp.fp, __BIT(31), __BIT(31), __BIT(31), __BIT(31));
+	fp.bin = FP_SNAN;
+	fctiw(fp.fp, __BIT(31), __BIT(31), __BIT(31), __BIT(31));
+	fp.bin = FP_QNAN;
+	fctiw(fp.fp, __BIT(31), __BIT(31), __BIT(31), __BIT(31));
 
-#if 1
+#if 0
 	fctid(0.0, 0, 0, 0, 0);
 	fctid(0.6, 1, 0, 1, 0);
 	fctid(0.5, 0, 0, 1, 0);
@@ -605,6 +666,22 @@ main(void)
 	fctid(-1.6, -2, -1, -1, -2);
 	fctid(-1.5, -2, -1, -1, -2);
 	fctid(-1.4, -1, -1, -1, -2);
+	fctid((double)__BIT(63),
+	    0x7fffffffffffffff, 0x7fffffffffffffff,
+	    0x7fffffffffffffff, 0x7fffffffffffffff);
+	fctid(-(double)(__BIT(63) + 1),
+	    __BIT(63), __BIT(63), __BIT(63), __BIT(63));
+	fp.bin = FP_PINF;
+	fctid(fp.fp, 0x7fffffffffffffff, 0x7fffffffffffffff,
+	    0x7fffffffffffffff, 0x7fffffffffffffff);
+	fctid(fp.fp, 0x7fffffffffffffff, 0x7fffffffffffffff,
+	    0x7fffffffffffffff, 0x7fffffffffffffff);
+	fp.bin = FP_MINF;
+	fctid(fp.fp, __BIT(63), __BIT(63), __BIT(63), __BIT(63));
+	fp.bin = FP_SNAN;
+	fctid(fp.fp, __BIT(63), __BIT(63), __BIT(63), __BIT(63));
+	fp.bin = FP_QNAN;
+	fctid(fp.fp, __BIT(63), __BIT(63), __BIT(63), __BIT(63));
 	fctid((double)0x0123456700000000LL, 0x0123456700000000LL,
 	    0x0123456700000000LL, 0x0123456700000000LL, 0x0123456700000000LL);
 #endif
