@@ -58,6 +58,8 @@ raise_zx(void)
 	volatile double a = atoi("1"), b = atoi("0"), d;
 	fp fpscr;
 
+	set_fpscr(false, FPSCR_ENABLE_MASK);
+
 	asm __volatile (
 		"fdiv	%[d],%[a],%[b];"
 		"mffs	%[fpscr];"
@@ -240,9 +242,10 @@ set_xe(void)
 static uint32_t
 fex(void)
 {
+	volatile double a = atoi("1"), b = atoi("0"), d;
 	fp fpscr;
 
-	(void)raise_zx();
+	d = a / b;
 
 	asm __volatile(
 		"mtfsb0	0;"
@@ -258,12 +261,40 @@ raise_ox(void)
 	volatile double a = 1.0e300, b = 1.0e300, d;
 	fp fpscr;
 
+	set_fpscr(false, FPSCR_ENABLE_MASK);
+
 	asm __volatile (
 		"fmul	%[d],%[a],%[b];"
 		"mffs	%[fpscr];"
 		: [d] "=f" (d), [fpscr] "=f" (fpscr.fp)
 		: [a] "f" (a), [b] "f" (b)
 	);
+
+	return fpscr.word[1];
+}
+
+static uint32_t
+raise_sox(void)
+{
+	double tmpa, tmpb, tmpd;
+	volatile float a = 1.0e30, b = 1.0e30, d = 0.0;
+	volatile float *ap = &a, *bp = &b, *dp = &d;
+	fp fpscr;
+
+	set_fpscr(false, FPSCR_ENABLE_MASK);
+
+	asm __volatile (
+		"lfs	%[a],0(%[ap]);"
+		"lfs	%[b],0(%[bp]);"
+		"fmuls	%[d],%[a],%[b];"
+		"mffs	%[fpscr];"
+		"stfs	%[d],0(%[dp]);"
+		: [a] "=f" (tmpa), [b] "=f" (tmpb), [d] "=f" (tmpd),
+		  [fpscr] "=f" (fpscr.fp)
+		: [ap] "r" (ap), [bp] "r" (bp), [dp] "r" (dp)
+	);
+
+	printf("%s: %e (0x%08x)\n", __func__, d, *(uint32_t *)dp);
 
 	return fpscr.word[1];
 }
@@ -341,6 +372,46 @@ fadd(void)
 		"mffs	%[fpscr];"
 		: [d] "=f" (d), [fpscr] "=f" (fpscr.fp)
 		: [a] "f" (a), [b] "f" (b)
+	);
+
+	return fpscr.word[1];
+}
+
+static uint32_t
+arith_snan(void)
+{
+	fp a;
+	volatile double b = 1.0, d;
+	fp fpscr;
+
+	set_fpscr(false, FPSCR_ENABLE_MASK);
+
+	a.bin = FP_SNAN;
+	asm __volatile (
+		"fadd	%[d],%[a],%[b];"
+		"mffs	%[fpscr];"
+		: [d] "=f" (d), [fpscr] "=f" (fpscr.fp)
+		: [a] "f" (a.fp), [b] "f" (b)
+	);
+
+	return fpscr.word[1];
+}
+
+static uint32_t
+arith_qnan(void)
+{
+	fp a;
+	volatile double b = 1.0, d;
+	fp fpscr;
+
+	set_fpscr(false, FPSCR_ENABLE_MASK);
+
+	a.bin = FP_QNAN;
+	asm __volatile (
+		"fadd	%[d],%[a],%[b];"
+		"mffs	%[fpscr];"
+		: [d] "=f" (d), [fpscr] "=f" (fpscr.fp)
+		: [a] "f" (a.fp), [b] "f" (b)
 	);
 
 	return fpscr.word[1];
@@ -595,8 +666,9 @@ main(void)
 
 	/* expected values were taken from MPC8245 (603e) */
 
-	TEST_FPSCR(raise_zx,	0xc40020f8, FPSCR_FPRF);
-	TEST_FPSCR(raise_ox,	0xd20640f8, FPSCR_FPRF);
+	TEST_FPSCR(raise_zx,	0x84005000, 0);
+	TEST_FPSCR(raise_ox,	0x92065000, 0);
+	TEST_FPSCR(raise_sox,	0x92025000, 0);
 	TEST_FPSCR(set_fex,	0x000000f8, 0);
 	TEST_FPSCR(set_vx,	0x000000f8, 0);
 	TEST_FPSCR(set_fprf,	0x0001c0f8, 0);
@@ -613,7 +685,10 @@ main(void)
 	TEST_FPSCR(mcrfs,	0x000000f8, 0);
 	TEST_FPSCR(what_this,	0x000000f8, 0);
 	TEST_FPSCR(fneg,	0x000000f8, 0);
-/*NG*/	TEST_FPSCR(fadd,	0x000040f8, 0);
+	TEST_FPSCR(fadd,	0x000040f8, 0);
+//	TEST_FPSCR(fadds,	0x000040f8, 0);
+	TEST_FPSCR(arith_snan,	0xa1011000, 0);
+	TEST_FPSCR(arith_qnan,	0x00011000, 0);
 	TEST_FPSCR(fsel_qnan_s,	0x000000f8, FPSCR_FPRF);
 
 	/* XXX sfp overflow */
