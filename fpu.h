@@ -17,8 +17,8 @@
 #define	FP_PINF		FP_MASK_EXP
 #define	FP_MINF		(FP_MASK_SIGN | FP_PINF)
 
-#define	FP_SNAN		(FP_MASK_EXP | __BITS(0, 51))	/* XXX */
-#define	FP_QNAN		(FP_MASK_EXP | __BITS(0, 50))	/* XXX */
+#define	FP_QNAN		(FP_MASK_EXP | __BITS(0, 51))	/* XXX */
+#define	FP_SNAN		(FP_MASK_EXP | __BITS(0, 50))	/* XXX */
 
 /* Single-Precision in FPR */
 
@@ -32,8 +32,8 @@
 #define	SFP_PINF	SFP_MASK_EXP
 #define	SFP_MINF	(SFP_MASK_SIGN | SFP_PINF)
 
-#define	SFP_SNAN	(SFP_MASK_EXP | __BITS(29, 51)) /* XXX */
-#define	SFP_QNAN	(SFP_MASK_EXP | __BITS(29, 50))	/* XXX */
+#define	SFP_QNAN	(SFP_MASK_EXP | __BITS(29, 51)) /* XXX */
+#define	SFP_SNAN	(SFP_MASK_EXP | __BITS(29, 50))	/* XXX */
 
 /* FPSCR bits */
 
