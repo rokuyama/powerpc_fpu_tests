@@ -138,6 +138,21 @@ set_fprf(void)
 }
 
 static uint32_t
+set_frfi(void)
+{
+	fp fpscr;
+
+	asm __volatile (
+		"mtfsb1	13;"
+		"mtfsb1	14;"
+		"mffs	%[fpscr];"
+		: [fpscr] "=f" (fpscr.fp)
+	);
+
+	return fpscr.word[1];
+}
+
+static uint32_t
 set_bit31(void)
 {
 	fp fpscr;
@@ -659,6 +674,132 @@ fctid(double val, int64_t exp_rn, int64_t exp_rz, int64_t exp_rp, int64_t exp_rm
 	}
 }
 
+static void
+round_double(void)
+{
+	volatile fp a, b, d, fpscr;
+
+	set_fpscr(false, 0xffffffff);
+	set_fpscr(false, FPSCR_ENABLE_MASK);
+	set_msr(false, MSR_FE_MASK);
+
+	a.bin = __BIT(53);
+	b.fp  = 0.5;
+	d.bin = 0;
+	fpscr.bin = 0;
+	__asm volatile (
+		"fmul	%[d],%[a],%[b];"
+		"mffs	%[fpscr];"
+		: [d] "=f" (d.fp), [fpscr] "=f" (fpscr.fp)
+		: [a] "f" (a.fp), [b] "f" (b.fp)
+		: "memory"
+	);
+	printf("%s: %e (0x%016llx) : 0x%08x\n", __func__,
+	    d.fp, d.bin, fpscr.word[1]);
+
+	set_fpscr(true, RN_RZ);
+
+	a.fp = 1.0e300;
+	b.fp = 1.0e300;
+	d.bin = 0;
+	fpscr.bin = 0;
+	__asm volatile (
+		"fmul	%[d],%[a],%[b];"
+		"mffs	%[fpscr];"
+		: [d] "=f" (d.fp), [fpscr] "=f" (fpscr.fp)
+		: [a] "f" (a.fp), [b] "f" (b.fp)
+		: "memory"
+	);
+	printf("%s: %e (0x%016llx) : 0x%08x\n", __func__,
+	    d.fp, d.bin, fpscr.word[1]);
+}
+
+static void
+fres(double b)
+{
+	volatile double d, a = 1.0;
+
+#if 1
+	__asm volatile (
+		"fres	%[d],%[b];"
+		: [d] "=f" (d)
+		: [b] "f" (b)
+	);
+#else
+	__asm volatile (
+		"fdivs	%[d],%[a],%[b];"
+		: [d] "=f" (d)
+		: [a] "f" (a), [b] "f" (b)
+	);
+#endif
+	printf("%s: 1 / %e ~ %e\n", __func__, b, d);
+}
+
+static void
+frsqrte(double b)
+{
+	volatile double d, a = 1.0;
+
+	__asm volatile (
+		"frsqrte %[d],%[b];"
+		: [d] "=f" (d)
+		: [b] "f" (b)
+	);
+	printf("%s: 1 / sqrt(%e) ~ %e\n", __func__, b, d);
+}
+
+static void
+fmadd(double a, double b, double c)
+{
+	volatile double d;
+
+	__asm volatile(
+		"fmadd	%[d],%[a],%[b],%[c];"
+		: [d] "=f" (d)
+		: [a] "f" (a), [b] "f" (b), [c] "f" (c)
+	);
+	printf("%s: %e x %e + %e = %e\n", __func__, a, c, b, d);
+}
+
+static void
+fmsub(double a, double b, double c)
+{
+	volatile double d;
+
+	__asm volatile(
+		"fmsub	%[d],%[a],%[b],%[c];"
+		: [d] "=f" (d)
+		: [a] "f" (a), [b] "f" (b), [c] "f" (c)
+	);
+	printf("%s: %e x %e - %e = %e\n", __func__, a, c, b, d);
+}
+
+static void
+fnmadd(double a, double b, double c)
+{
+	volatile double d;
+
+	__asm volatile(
+		"fnmadd	%[d],%[a],%[b],%[c];"
+		: [d] "=f" (d)
+		: [a] "f" (a), [b] "f" (b), [c] "f" (c)
+	);
+	printf("%s: -(%e x %e + %e) = %e\n", __func__, a, c, b, d);
+}
+
+static void
+fnmsub(double a, double b, double c)
+{
+	volatile double d;
+
+	__asm volatile(
+		"fnmsub	%[d],%[a],%[b],%[c];"
+		: [d] "=f" (d)
+		: [a] "f" (a), [b] "f" (b), [c] "f" (c)
+	);
+	printf("%s: -(%e x %e - %e) = %e\n", __func__, a, c, b, d);
+}
+
 int
 main(void)
 {
@@ -672,6 +813,7 @@ main(void)
 	TEST_FPSCR(set_fex,	0x000000f8, 0);
 	TEST_FPSCR(set_vx,	0x000000f8, 0);
 	TEST_FPSCR(set_fprf,	0x0001c0f8, 0);
+	TEST_FPSCR(set_frfi,	0x000600f8, 0);
 	TEST_FPSCR(set_bit31,	0x000000f9, 0);
 	TEST_FPSCR(set_zx,	0xc40000f8, 0);
 	TEST_FPSCR(clear_xe,	0x000000f0, 0);
@@ -759,6 +901,34 @@ main(void)
 	fctid(fp.fp, __BIT(63), __BIT(63), __BIT(63), __BIT(63));
 	fctid((double)0x0123456700000000LL, 0x0123456700000000LL,
 	    0x0123456700000000LL, 0x0123456700000000LL, 0x0123456700000000LL);
+#endif
+
+	round_double();
+
+#if 1
+	fres(1.0);
+	fres(0.5);
+#endif
+
+#if 1
+	frsqrte(1.0);
+	frsqrte(0.5);
+#endif
+
+#if 1
+	fmadd(1.0, 1.0, 1.0);
+#endif
+
+#if 1
+	fmsub(1.0, 1.0, 1.0);
+#endif
+
+#if 1
+	fnmadd(1.0, 1.0, 1.0);
+#endif
+
+#if 1
+	fnmsub(1.0, 1.0, 1.0);
 #endif
 
 	return 0;
