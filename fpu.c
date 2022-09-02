@@ -332,6 +332,46 @@ mtfsf(void)
 }
 
 static uint32_t
+mtfsf_fprf1(void)
+{
+	fp a, b, fpscr;
+
+	a.word[0] = 0;
+	a.word[1] = FPSCR_FPRF;
+	b.word[0] = 0;
+	b.word[1] = 0;
+	asm __volatile (
+		"mtfsf	0xff,%[a];"
+		"mtfsf	0x10,%[b];"
+		"mffs	%[fpscr];"
+		: [fpscr] "=f" (fpscr.fp)
+		: [a] "f" (a.fp), [b] "f" (b.fp)
+	);
+
+	return fpscr.word[1];
+}
+
+static uint32_t
+mtfsf_fprf2(void)
+{
+	fp a, b, fpscr;
+
+	a.word[0] = 0;
+	a.word[1] = FPSCR_FPRF;
+	b.word[0] = 0;
+	b.word[1] = 0;
+	asm __volatile (
+		"mtfsf	0xff,%[a];"
+		"mtfsf	0x08,%[b];"
+		"mffs	%[fpscr];"
+		: [fpscr] "=f" (fpscr.fp)
+		: [a] "f" (a.fp), [b] "f" (b.fp)
+	);
+
+	return fpscr.word[1];
+}
+
+static uint32_t
 mcrfs(void)
 {
 	fp a, fpscr;
@@ -824,6 +864,8 @@ main(void)
 	TEST_FPSCR(reset_vx,	0xe0c000f8, 0);
 	TEST_FPSCR(fex,		0x440000f8, FPSCR_FPRF);
 	TEST_FPSCR(mtfsf,	0x90000000, 0);
+	TEST_FPSCR(mtfsf_fprf1,	0x0000f000, 0);
+	TEST_FPSCR(mtfsf_fprf2,	0x00010000, 0);
 	TEST_FPSCR(mcrfs,	0x000000f8, 0);
 	TEST_FPSCR(what_this,	0x000000f8, 0);
 	TEST_FPSCR(fneg,	0x000000f8, 0);
