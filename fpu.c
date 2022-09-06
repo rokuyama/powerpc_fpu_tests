@@ -416,6 +416,7 @@ what_this(void)
 	return fneg();
 }
 
+#if 0
 static uint32_t
 fadd(void)
 {
@@ -431,6 +432,7 @@ fadd(void)
 
 	return fpscr.word[1];
 }
+#endif
 
 static uint32_t
 arith_snan(void)
@@ -788,6 +790,7 @@ frsqrte(double b)
 	printf("%s: 1 / sqrt(%e) ~ %e\n", __func__, b, d);
 }
 
+#if 0
 static void
 fmadd(double a, double b, double c)
 {
@@ -839,6 +842,128 @@ fnmsub(double a, double b, double c)
 	);
 	printf("%s: -(%e x %e - %e) = %e\n", __func__, a, c, b, d);
 }
+#endif
+
+#define	TEST_2OPS(op)							\
+static void								\
+op(uint64_t v, uint64_t e, int exp_fpscr)				\
+{									\
+	volatile fp val, exp, ret, fpscr;				\
+									\
+	set_fpscr(false, 0xffffffff);					\
+	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */		\
+	set_msr(false, MSR_FE_MASK);					\
+									\
+	val.bin = v;							\
+	exp.bin = e;							\
+	fpscr.bin = 0;							\
+	asm __volatile (						\
+		#op							\
+		"	%[ret],%[val];"					\
+		"mffs	%[fpscr];"					\
+		: [ret] "=f" (ret.fp), [fpscr] "=f" (fpscr.fp)		\
+		: [val] "f" (val.fp)					\
+		: "memory"						\
+	);								\
+	if (ret.bin != exp.bin) {					\
+		printf("%s: %f (0x%016llx) val: FAILED\n", __func__,	\
+		    val.fp, val.bin);					\
+		printf("\t%f (0x%016llx) !=\n", ret.fp, ret.bin);	\
+		printf("\t%f (0x%016llx)\n", exp.fp, exp.bin);		\
+	}								\
+	if (fpscr.word[1] != exp_fpscr) {				\
+		printf("%s: %f (0x%016llx) fpscr: FAILED\n", __func__,	\
+		    val.fp, val.bin);					\
+		printf("\t0x%08x !=\n", fpscr.word[1]);			\
+		printf("\t0x%08x\n", exp_fpscr);			\
+	}								\
+}
+
+TEST_2OPS(fsqrt)
+TEST_2OPS(frsp)
+
+#define	TEST_3OPS(op)							\
+static void								\
+op(uint64_t a, uint64_t b, uint64_t e, int exp_fpscr)			\
+{									\
+	volatile fp vala, valb, exp, ret, fpscr;			\
+									\
+	set_fpscr(false, 0xffffffff);					\
+	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */		\
+	set_msr(false, MSR_FE_MASK);					\
+									\
+	vala.bin = a;							\
+	valb.bin = b;							\
+	exp.bin = e;							\
+	fpscr.bin = 0;							\
+	asm __volatile (						\
+		#op							\
+		"	%[ret],%[a],%[b];"				\
+		"mffs	%[fpscr];"					\
+		: [ret] "=f" (ret.fp), [fpscr] "=f" (fpscr.fp)		\
+		: [a] "f" (vala.fp), [b] "f" (valb.fp)			\
+		: "memory"						\
+	);								\
+	if (ret.bin != exp.bin) {					\
+		printf("%s: %f (0x%016llx) %f (0x%016llx) val: FAILED\n", \
+		    __func__, vala.fp, vala.bin, valb.fp, valb.bin);	\
+		printf("\t%f (0x%016llx) !=\n", ret.fp, ret.bin);	\
+		printf("\t%f (0x%016llx)\n", exp.fp, exp.bin);		\
+	}								\
+	if (fpscr.word[1] != exp_fpscr) {				\
+		printf("%s: %f (0x%016llx) %f (0x%016llx) fpscr: FAILED\n", \
+		    __func__, vala.fp, vala.bin, valb.fp, valb.bin);	\
+		printf("\t0x%08x !=\n", fpscr.word[1]);			\
+		printf("\t0x%08x\n", exp_fpscr);			\
+	}								\
+}
+
+TEST_3OPS(fadd)
+TEST_3OPS(fmul)
+TEST_3OPS(fdiv)
+
+#define	TEST_4OPS(op)							\
+static void								\
+op(uint64_t a, uint64_t b, uint64_t c, uint64_t e, int exp_fpscr)	\
+{									\
+	volatile fp vala, valb, valc, exp, ret, fpscr;			\
+									\
+	set_fpscr(false, 0xffffffff);					\
+	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */		\
+	set_msr(false, MSR_FE_MASK);					\
+									\
+	vala.bin = a;							\
+	valb.bin = b;							\
+	valc.bin = c;							\
+	exp.bin = e;							\
+	fpscr.bin = 0;							\
+	asm __volatile (						\
+		#op							\
+		"	%[ret],%[a],%[b],%[c];"				\
+		"mffs	%[fpscr];"					\
+		: [ret] "=f" (ret.fp), [fpscr] "=f" (fpscr.fp)		\
+		: [a] "f" (vala.fp), [b] "f" (valb.fp), [c] "f" (valc.fp) \
+		: "memory"						\
+	);								\
+	if (ret.bin != exp.bin) {					\
+		printf("%s: %f (0x%016llx) %f (0x%016llx) %f (0x%016llx) " \
+		    "val: FAILED\n", 					\
+		    __func__, vala.fp, vala.bin, valb.fp, valb.bin,	\
+		    valc.fp, valc.bin);					\
+		printf("\t%f (0x%016llx) !=\n", ret.fp, ret.bin);	\
+		printf("\t%f (0x%016llx)\n", exp.fp, exp.bin);		\
+	}								\
+	if (fpscr.word[1] != exp_fpscr) {				\
+		printf("%s: %f (0x%016llx) %f (0x%016llx) %f (0x%016llx) " \
+		    "fpscr: FAILED\n", 					\
+		    __func__, vala.fp, vala.bin, valb.fp, valb.bin,	\
+		    valc.fp, valc.bin);					\
+		printf("\t0x%08x !=\n", fpscr.word[1]);			\
+		printf("\t0x%08x\n", exp_fpscr);			\
+	}								\
+}
+
+TEST_4OPS(fmadd)
 
 int
 main(void)
@@ -869,7 +994,7 @@ main(void)
 	TEST_FPSCR(mcrfs,	0x000000f8, 0);
 	TEST_FPSCR(what_this,	0x000000f8, 0);
 	TEST_FPSCR(fneg,	0x000000f8, 0);
-	TEST_FPSCR(fadd,	0x000040f8, 0);
+//	TEST_FPSCR(fadd,	0x000040f8, 0);
 //	TEST_FPSCR(fadds,	0x000040f8, 0);
 	TEST_FPSCR(arith_snan,	0xa1011000, 0);
 	TEST_FPSCR(arith_qnan,	0x00011000, 0);
@@ -947,31 +1072,75 @@ main(void)
 
 	round_double();
 
-#if 1
 	fres(1.0);
 	fres(0.5);
-#endif
 
-#if 1
 	frsqrte(1.0);
 	frsqrte(0.5);
-#endif
 
-#if 1
+#if 0
 	fmadd(1.0, 1.0, 1.0);
-#endif
-
-#if 1
 	fmsub(1.0, 1.0, 1.0);
-#endif
-
-#if 1
 	fnmadd(1.0, 1.0, 1.0);
-#endif
-
-#if 1
 	fnmsub(1.0, 1.0, 1.0);
 #endif
+
+#if 0
+	/* Tested on G5 */
+	fsqrt(FP_MINF, FP_QNAN_CPU,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSQRT | FPRF_C | FPRF_FU);
+	fsqrt(FP_M1, FP_QNAN_CPU,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSQRT | FPRF_C | FPRF_FU);
+	fsqrt(FP_MZERO, FP_MZERO, FPRF_C | FPRF_FE);
+	fsqrt(FP_PZERO, FP_PZERO, FPRF_FE);
+	fsqrt(FP_P1, FP_P1, FPRF_FG);
+	fsqrt(FP_PINF, FP_PINF, FPRF_FG | FPRF_FU);
+	fsqrt(FP_SNAN, FP_QNAN,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+	fsqrt(FP_QNAN, FP_QNAN, FPRF_C | FPRF_FU);
+#endif
+
+	frsp(FP_QNAN1, FP_QNAN1 & 0xffffffffe0000000ULL, FPRF_C | FPRF_FU);
+	frsp(FP_SNAN1, FP_QNAN1 & 0xffffffffe0000000ULL,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+
+	fadd(FP_P1, FP_P1, FP_P2, FPRF_FG);
+	fadd(FP_P1, FP_M1, FP_PZERO, FPRF_FE);
+	fadd(FP_M1, FP_P1, FP_PZERO, FPRF_FE);
+	fadd(FP_QNAN, FP_P1, FP_QNAN, FPRF_C | FPRF_FU);
+	fadd(FP_P1, FP_QNAN, FP_QNAN, FPRF_C | FPRF_FU);
+	fadd(FP_QNAN, FP_QNAN_CPU, FP_QNAN, FPRF_C | FPRF_FU);
+	fadd(FP_QNAN_CPU, FP_QNAN, FP_QNAN_CPU, FPRF_C | FPRF_FU);
+	fadd(FP_SNAN, FP_P1, FP_QNAN,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+	fadd(FP_QNAN_CPU, FP_SNAN, FP_QNAN_CPU,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+	fadd(FP_SNAN, FP_QNAN_CPU, FP_QNAN,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+
+	fmul(FP_P1, FP_P1, FP_P1, FPRF_FG);
+	fmul(FP_P1, FP_M1, FP_M1, FPRF_FL);
+	fmul(FP_M1, FP_P1, FP_M1, FPRF_FL);
+	fmul(FP_QNAN, FP_P1, FP_QNAN, FPRF_C | FPRF_FU);
+	fmul(FP_P1, FP_QNAN, FP_QNAN, FPRF_C | FPRF_FU);
+	fmul(FP_QNAN, FP_QNAN_CPU, FP_QNAN, FPRF_C | FPRF_FU);
+	fmul(FP_QNAN_CPU, FP_QNAN, FP_QNAN_CPU, FPRF_C | FPRF_FU);
+	fmul(FP_SNAN, FP_P1, FP_QNAN,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+	fmul(FP_QNAN_CPU, FP_SNAN, FP_QNAN_CPU,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+	fmul(FP_SNAN, FP_QNAN_CPU, FP_QNAN,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+
+	fmul(FP_SNAN, FP_M1, FP_QNAN,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+
+	fmadd(FP_QNAN_CPU, FP_QNAN1, FP_SNAN, FP_QNAN_CPU,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+	fmadd(FP_QNAN_CPU, FP_SNAN, FP_QNAN1, FP_QNAN_CPU,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+	fmadd(FP_SNAN, FP_QNAN_CPU, FP_QNAN1, FP_QNAN,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
 
 	return 0;
 }

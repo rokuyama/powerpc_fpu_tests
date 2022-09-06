@@ -11,14 +11,26 @@
 #define	FP_MASK_EXP	__BITS(52, 62)
 #define	FP_MASK_FRAC	__BITS(0, 51)
 
+#define	FP_SIGN		FP_MASK_SIGN
+
 #define	FP_PZERO	0ULL
-#define	FP_MZERO	(FP_MASK_SIGN | FP_PZERO)
+#define	FP_MZERO	(FP_SIGN | FP_PZERO)
 
 #define	FP_PINF		FP_MASK_EXP
-#define	FP_MINF		(FP_MASK_SIGN | FP_PINF)
+#define	FP_MINF		(FP_SIGN | FP_PINF)
 
-#define	FP_QNAN		(FP_MASK_EXP | __BITS(0, 51))	/* XXX */
-#define	FP_SNAN		(FP_MASK_EXP | __BITS(0, 50))	/* XXX */
+#define	FP_SNAN		(FP_MASK_EXP | 0x0007deadbeef1234)	/* XXX */
+#define	FP_SNAN1	(FP_MASK_EXP | 0x0007ffffffffffff)	/* XXX */
+#define	FP_QNAN_BIT	__BIT(51)
+#define	FP_QNAN_CPU	(FP_MASK_EXP | FP_QNAN_BIT)
+#define	FP_QNAN		(FP_SNAN | FP_QNAN_BIT)
+#define	FP_QNAN1	(FP_SNAN1 | FP_QNAN_BIT)
+
+#define	FP_P1		0x3ff0000000000000ULL
+#define	FP_M1		(FP_MASK_SIGN | FP_P1)
+
+#define	FP_P2		0x4000000000000000ULL
+#define	FP_M2		(FP_MASK_SIGN | FP_P2)
 
 /* Single-Precision in FPR */
 
