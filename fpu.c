@@ -967,6 +967,24 @@ op(uint64_t a, uint64_t b, uint64_t c, uint64_t e, int exp_fpscr)	\
 
 TEST_4OPS(fmadd)
 
+static void
+fcfid(int64_t i)
+{
+	volatile fp d, b;
+	uint64_t *p = &i;
+
+	b.bin = 0;
+	d.bin = 0;
+	__asm volatile(
+		"lfd	%[b],0(%[p]);"
+		"fcfid	%[d],%[b];"
+		: [b] "=f" (b.fp), [d] "=f" (d.fp)
+		: [p] "r" (p)
+	);
+	printf("%s: %lld (0x%016llx) -> %e (0x%016llx)\n", __func__,
+	    i, i, d.fp, d.bin);
+}
+
 int
 main(void)
 {
@@ -1124,6 +1142,8 @@ main(void)
 	fadd(FP_SNAN, FP_QNAN_CPU, FP_QNAN,
 	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
 
+	fsub(FP_P1, FP_P1, FP_PZERO, FPRF_FE);
+	fsub(FP_P1, FP_M1, FP_P2, FPRF_FG);
 	fsub(FP_P1, FP_QNAN, FP_QNAN, FPRF_C | FPRF_FU);
 
 	fsubs(FP_P1, FP_QNAN, FP_QNAN & 0xffffffffe0000000ULL,
@@ -1152,6 +1172,16 @@ main(void)
 	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
 	fmadd(FP_SNAN, FP_QNAN_CPU, FP_QNAN1, FP_QNAN,
 	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+
+#if 0
+	/* Tested on G5 */
+	fcfid(1);
+	fcfid(-1);
+	fcfid(2);
+	fcfid(-2);
+	fcfid(0x12345678deadbeefULL);
+	fcfid(0x92345678deadbeefULL);
+#endif
 
 	return 0;
 }
