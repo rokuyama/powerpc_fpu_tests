@@ -1104,6 +1104,10 @@ main(void)
 	frsp(FP_SNAN1, FP_QNAN1 & 0xffffffffe0000000ULL,
 	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
 
+	frsp(FP_QNAN, FP_QNAN & 0xffffffffe0000000ULL, FPRF_C | FPRF_FU);
+	frsp(FP_SNAN, FP_QNAN & 0xffffffffe0000000ULL,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+
 	fadd(FP_P1, FP_P1, FP_P2, FPRF_FG);
 	fadd(FP_P1, FP_M1, FP_PZERO, FPRF_FE);
 	fadd(FP_M1, FP_P1, FP_PZERO, FPRF_FE);
