@@ -919,6 +919,8 @@ op(uint64_t a, uint64_t b, uint64_t e, int exp_fpscr)			\
 }
 
 TEST_3OPS(fadd)
+TEST_3OPS(fsub)
+TEST_3OPS(fsubs)
 TEST_3OPS(fmul)
 TEST_3OPS(fdiv)
 
@@ -1121,6 +1123,11 @@ main(void)
 	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
 	fadd(FP_SNAN, FP_QNAN_CPU, FP_QNAN,
 	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+
+	fsub(FP_P1, FP_QNAN, FP_QNAN, FPRF_C | FPRF_FU);
+
+	fsubs(FP_P1, FP_QNAN, FP_QNAN & 0xffffffffe0000000ULL,
+	    FPRF_C | FPRF_FU);
 
 	fmul(FP_P1, FP_P1, FP_P1, FPRF_FG);
 	fmul(FP_P1, FP_M1, FP_M1, FPRF_FL);
