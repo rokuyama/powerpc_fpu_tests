@@ -605,6 +605,46 @@ fctiw(double val, int exp_rn, int exp_rz, int exp_rp, int exp_rm)
 		    __func__, val, fpscr.word[1]);
 #endif
 
+#define	QNAN_MASK	0xfffffffcU
+#define	SNAN_MASK	QNAN_MASK
+#define	INF_MASK	QNAN_MASK
+#define	QNAN_VAL	(FPSCR_FX | FPSCR_VX | FPSCR_VXCVI)
+#define	SNAN_VAL	(FPSCR_VXSNAN | QNAN_VAL)
+#define	INF_VAL		QNAN_VAL
+
+		fp v;
+		v.fp = val;
+		if (FP_ISQNAN(v.bin)) {
+			if ((fpscr.word[1] & QNAN_MASK) != QNAN_VAL)
+				printf("%s: SNaN FAILED FPSCR %08x\n",
+				    __func__, fpscr.word[1]);
+#if 0
+			else
+				printf("%s: SNaN passed FPSCR %08x\n",
+				    __func__, fpscr.word[1]);
+#endif
+		}
+		if (FP_ISSNAN(v.bin)) {
+			if ((fpscr.word[1] & SNAN_MASK) != SNAN_VAL)
+				printf("%s: QNaN FAILED FPSCR %08x\n",
+				    __func__, fpscr.word[1]);
+#if 0
+			else
+				printf("%s: QNaN passed FPSCR %08x\n",
+				    __func__, fpscr.word[1]);
+#endif
+		}
+		if (FP_ISINF(v.bin)) {
+			if ((fpscr.word[1] & INF_MASK) != INF_VAL)
+				printf("%s: INF FAILED FPSCR %08x\n",
+				    __func__, fpscr.word[1]);
+#if 0
+			else
+				printf("%s: INF passed FPSCR %08x\n",
+				    __func__, fpscr.word[1]);
+#endif
+		}
+
 		set_fpscr(false, 0xffffffff);
 		set_fpscr(false, FPSCR_ENABLE_MASK);
 		set_fpscr(true, rn);
@@ -633,7 +673,45 @@ fctiw(double val, int exp_rn, int exp_rz, int exp_rp, int exp_rm)
 		printf("%sz: %f -> fpscr 0x%08x\n",
 		    __func__, val, fpscr.word[1]);
 #endif
+
+		v.fp = val;
+		if (FP_ISQNAN(v.bin)) {
+			if ((fpscr.word[1] & QNAN_MASK) != QNAN_VAL)
+				printf("%s: SNaN FAILED FPSCR %08x\n",
+				    __func__, fpscr.word[1]);
+#if 0
+			else
+				printf("%s: SNaN passed FPSCR %08x\n",
+				    __func__, fpscr.word[1]);
+#endif
+		}
+		if (FP_ISSNAN(v.bin)) {
+			if ((fpscr.word[1] & SNAN_MASK) != SNAN_VAL)
+				printf("%s: QNaN FAILED FPSCR %08x\n",
+				    __func__, fpscr.word[1]);
+#if 0
+			else
+				printf("%s: QNaN passed FPSCR %08x\n",
+				    __func__, fpscr.word[1]);
+#endif
+		}
+		if (FP_ISINF(v.bin)) {
+			if ((fpscr.word[1] & INF_MASK) != INF_VAL)
+				printf("%s: INF FAILED FPSCR %08x\n",
+				    __func__, fpscr.word[1]);
+#if 0
+			else
+				printf("%s: INF passed FPSCR %08x\n",
+				    __func__, fpscr.word[1]);
+#endif
+		}
 	}
+#undef	QNAN_MASK
+#undef	SNAN_MASK
+#undef	INF_MASK
+#undef	QNAN_VAL
+#undef	SNAN_VAL
+#undef	INF_VAL
 }
 
 static void
@@ -881,6 +959,7 @@ op(uint64_t v, uint64_t e, int exp_fpscr)				\
 
 TEST_2OPS(fsqrt)
 TEST_2OPS(frsp)
+TEST_2OPS(frin)
 
 #define	TEST_3OPS(op)							\
 static void								\
@@ -973,6 +1052,10 @@ fcfid(int64_t i)
 	volatile fp d, b;
 	uint64_t *p = &i;
 
+	set_fpscr(false, 0xffffffff);
+	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */
+	set_msr(false, MSR_FE_MASK);
+
 	b.bin = 0;
 	d.bin = 0;
 	__asm volatile(
@@ -984,6 +1067,72 @@ fcfid(int64_t i)
 	printf("%s: %lld (0x%016llx) -> %e (0x%016llx)\n", __func__,
 	    i, i, d.fp, d.bin);
 }
+
+static void
+fadd_rn(uint32_t rn, uint64_t a, uint64_t b, uint64_t e, uint32_t e_f)
+{
+	volatile fp d, fpscr;
+
+	e_f |= rn;
+
+	set_fpscr(false, 0xffffffff);
+	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */
+	set_fpscr(true, rn);
+	set_msr(false, MSR_FE_MASK);
+
+	__asm volatile(
+		"fadd	%[d],%[a],%[b];"
+		"mffs	%[fpscr];"
+		: [d] "=f" (d), [fpscr] "=f" (fpscr)
+		: [a] "f" (a), [b] "f" (b)
+	);
+	if (d.bin != e)
+		printf("%s: FAILED val %e (0x%016llx) != %e (0x%016llx)\n",
+		    __func__, d.fp, d.bin, *(double *)&e, e);
+	if (fpscr.word[1] != e_f)
+		printf("%s: FAILED fpscr 0x%08x != 0x%08x\n",
+		    __func__, fpscr.word[1], e_f);
+}
+
+#define	FCMP_TEST(op)							\
+static void								\
+op(uint64_t a, uint64_t b, uint32_t ecc, uint32_t efpscr)		\
+{									\
+	volatile fp fpscr;						\
+	uint32_t orig_cr, cr;						\
+									\
+	efpscr |= ecc;							\
+	ecc >>= (4 * 3);						\
+									\
+	set_fpscr(false, 0xffffffff);					\
+	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */		\
+	set_msr(false, MSR_FE_MASK);					\
+									\
+	__asm volatile (						\
+		"mfcr	%[orig_cr];"					\
+		#op							\
+		"	7,%[a],%[b];"					\
+		"mffs	%[fpscr];"					\
+		"mfcr	%[cr];"						\
+		: [orig_cr] "=r" (orig_cr),				\
+			[fpscr] "=f" (fpscr), [cr] "=r" (cr)		\
+		: [a] "f" (a), [b] "f" (b)				\
+		: "cr7"							\
+	);								\
+	ecc |= (orig_cr & ~0xf);					\
+	if (cr != ecc)							\
+		printf("%s: FAILED %e (0x%016llx) vs %e (0x%016llx):\n"	\
+		    "\tcr 0x%08x != 0x%08x\n", __func__,		\
+		    *(double *)&a, a, *(double *)&b, b, cr, ecc);	\
+	if (fpscr.word[1] != efpscr)					\
+		printf("%s: FAILED %e (0x%016llx) vs %e (0x%016llx):\n"	\
+		    "\tfpscr 0x%08x != 0x%08x\n", __func__,		\
+		    *(double *)&a, a, *(double *)&b, b,			\
+		    fpscr.word[1], efpscr);				\
+}
+
+FCMP_TEST(fcmpu)
+FCMP_TEST(fcmpo)
 
 int
 main(void)
@@ -1007,7 +1156,9 @@ main(void)
 	TEST_FPSCR(set_vx_clear_fx,
 				0x608000f8, 0);
 	TEST_FPSCR(reset_vx,	0xe0c000f8, 0);
-	TEST_FPSCR(fex,		0x440000f8, FPSCR_FPRF);
+#ifdef notyet /* XXX also, not well-defined */
+	TEST_FPSCR(fex,		0x440020f8, 0);	/* fix enabled mask */
+#endif
 	TEST_FPSCR(mtfsf,	0x90000000, 0);
 	TEST_FPSCR(mtfsf_fprf1,	0x0000f000, 0);
 	TEST_FPSCR(mtfsf_fprf2,	0x00010000, 0);
@@ -1018,15 +1169,13 @@ main(void)
 //	TEST_FPSCR(fadds,	0x000040f8, 0);
 	TEST_FPSCR(arith_snan,	0xa1011000, 0);
 	TEST_FPSCR(arith_qnan,	0x00011000, 0);
-	TEST_FPSCR(fsel_qnan_s,	0x000000f8, FPSCR_FPRF);
+	TEST_FPSCR(fsel_qnan_s,	0x000000f8, 0);
 
 	/* XXX sfp overflow */
 
-#if 1
 	TEST_RD(fsel_snan,	0.0);
 	TEST_RD(fsel_qnan,	0.0);
 	TEST_RD(fsel_mzero,	1.0);
-#endif
 
 	set_fx();
 
@@ -1128,6 +1277,11 @@ main(void)
 	frsp(FP_SNAN, FP_QNAN & 0xffffffffe0000000ULL,
 	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
 
+#if 0
+	/* not implemented even on G5 */
+	frin(0, 0, 0);
+#endif
+
 	fadd(FP_P1, FP_P1, FP_P2, FPRF_FG);
 	fadd(FP_P1, FP_M1, FP_PZERO, FPRF_FE);
 	fadd(FP_M1, FP_P1, FP_PZERO, FPRF_FE);
@@ -1141,6 +1295,9 @@ main(void)
 	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
 	fadd(FP_SNAN, FP_QNAN_CPU, FP_QNAN,
 	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+
+	fadd(FP_PINF, FP_MINF, FP_QNAN_CPU,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXISI | FPRF_C | FPRF_FU);
 
 	fsub(FP_P1, FP_P1, FP_PZERO, FPRF_FE);
 	fsub(FP_P1, FP_M1, FP_P2, FPRF_FG);
@@ -1163,8 +1320,19 @@ main(void)
 	fmul(FP_SNAN, FP_QNAN_CPU, FP_QNAN,
 	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
 
+	fmul(FP_PINF, FP_PZERO, FP_QNAN_CPU,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXIMZ | FPRF_C | FPRF_FU);
+
 	fmul(FP_SNAN, FP_M1, FP_QNAN,
 	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+
+	fdiv(FP_P1, FP_MZERO, FP_MINF,
+	    FPSCR_FX | FPSCR_ZX | FPRF_FL | FPRF_FU);
+
+	fdiv(FP_PINF, FP_PINF, FP_QNAN_CPU,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXIDI | FPRF_C | FPRF_FU);
+	fdiv(FP_PZERO, FP_PZERO, FP_QNAN_CPU,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXZDZ | FPRF_C | FPRF_FU);
 
 	fmadd(FP_QNAN_CPU, FP_QNAN1, FP_SNAN, FP_QNAN_CPU,
 	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
@@ -1172,6 +1340,62 @@ main(void)
 	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
 	fmadd(FP_SNAN, FP_QNAN_CPU, FP_QNAN1, FP_QNAN,
 	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+
+	fadd_rn(RN_RN, FP_P1, FP_M1, FP_PZERO, FPRF_FE);
+	fadd_rn(RN_RZ, FP_P1, FP_M1, FP_PZERO, FPRF_FE);
+	fadd_rn(RN_RP, FP_P1, FP_M1, FP_PZERO, FPRF_FE);
+	fadd_rn(RN_RM, FP_P1, FP_M1, FP_MZERO, FPRF_C | FPRF_FE);
+
+	fadd_rn(RN_RN, FP_PZERO, FP_PZERO, FP_PZERO, FPRF_FE);
+	fadd_rn(RN_RZ, FP_PZERO, FP_PZERO, FP_PZERO, FPRF_FE);
+	fadd_rn(RN_RP, FP_PZERO, FP_PZERO, FP_PZERO, FPRF_FE);
+	fadd_rn(RN_RM, FP_PZERO, FP_PZERO, FP_PZERO, FPRF_FE);
+
+	fadd_rn(RN_RN, FP_PZERO, FP_MZERO, FP_PZERO, FPRF_FE);
+	fadd_rn(RN_RZ, FP_PZERO, FP_MZERO, FP_PZERO, FPRF_FE);
+	fadd_rn(RN_RP, FP_PZERO, FP_MZERO, FP_PZERO, FPRF_FE);
+	fadd_rn(RN_RM, FP_PZERO, FP_MZERO, FP_MZERO, FPRF_C | FPRF_FE);
+
+	fadd_rn(RN_RN, FP_MZERO, FP_MZERO, FP_MZERO, FPRF_C | FPRF_FE);
+	fadd_rn(RN_RZ, FP_MZERO, FP_MZERO, FP_MZERO, FPRF_C | FPRF_FE);
+	fadd_rn(RN_RP, FP_MZERO, FP_MZERO, FP_MZERO, FPRF_C | FPRF_FE);
+	fadd_rn(RN_RM, FP_MZERO, FP_MZERO, FP_MZERO, FPRF_C | FPRF_FE);
+
+	fcmpu(FP_P1, FP_P2, FPRF_FL, 0);
+	fcmpu(FP_P1, FP_M2, FPRF_FG, 0);
+	fcmpu(FP_M1, FP_M2, FPRF_FG, 0);
+	fcmpu(FP_PZERO, FP_MZERO, FPRF_FE, 0);
+	fcmpu(FP_PINF, FP_MINF, FPRF_FG, 0);
+	fcmpu(FP_PINF, FP_PINF, FPRF_FE, 0);
+	fcmpu(FP_PINF, FP_P1, FPRF_FG, 0);
+	fcmpu(FP_PINF, FP_PZERO, FPRF_FG, 0);
+	fcmpu(FP_MINF, FP_PZERO, FPRF_FL, 0);
+	fcmpu(FP_PZERO, FP_QNAN, FPRF_FU, 0);
+	fcmpu(FP_P1, FP_QNAN, FPRF_FU, 0);
+	fcmpu(FP_PINF, FP_QNAN, FPRF_FU, 0);
+	fcmpu(FP_QNAN, FP_QNAN, FPRF_FU, 0);
+	fcmpu(FP_P1, FP_SNAN, FPRF_FU,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN);
+
+#define	EX_NAN	(FPSCR_FX | FPSCR_VX | FPSCR_VXVC)
+
+	fcmpo(FP_P1, FP_P2, FPRF_FL, 0);
+	fcmpo(FP_P1, FP_M2, FPRF_FG, 0);
+	fcmpo(FP_M1, FP_M2, FPRF_FG, 0);
+	fcmpo(FP_PZERO, FP_MZERO, FPRF_FE, 0);
+	fcmpo(FP_PINF, FP_MINF, FPRF_FG, 0);
+	fcmpo(FP_PINF, FP_PINF, FPRF_FE, 0);
+	fcmpo(FP_PINF, FP_P1, FPRF_FG, 0);
+	fcmpo(FP_PINF, FP_PZERO, FPRF_FG, 0);
+	fcmpo(FP_MINF, FP_PZERO, FPRF_FL, 0);
+	fcmpo(FP_PZERO, FP_QNAN, FPRF_FU, EX_NAN);
+	fcmpo(FP_P1, FP_QNAN, FPRF_FU, EX_NAN);
+	fcmpo(FP_PINF, FP_QNAN, FPRF_FU, EX_NAN);
+	fcmpo(FP_QNAN, FP_QNAN, FPRF_FU, EX_NAN);
+	fcmpo(FP_P1, FP_SNAN, FPRF_FU,
+	    EX_NAN | FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN);
+
+#undef	EX_NAN
 
 #if 0
 	/* Tested on G5 */

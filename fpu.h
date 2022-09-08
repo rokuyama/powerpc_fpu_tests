@@ -32,6 +32,14 @@
 #define	FP_P2		0x4000000000000000ULL
 #define	FP_M2		(FP_MASK_SIGN | FP_P2)
 
+#define	FP_ISNAN(u64)							\
+    (((u64) & FP_MASK_EXP) == FP_MASK_EXP && ((u64) & FP_MASK_FRAC) != 0)
+#define	FP_ISQNAN(u64)	(FP_ISNAN(u64) && ((u64) & FP_QNAN_BIT) != 0)
+#define	FP_ISSNAN(u64)	(FP_ISNAN(u64) && ((u64) & FP_QNAN_BIT) == 0)
+
+#define	FP_ISINF(u64)							\
+    (((u64) & FP_MASK_EXP) == FP_MASK_EXP && ((u64) & FP_MASK_FRAC) == 0)
+
 /* Single-Precision in FPR */
 
 #define	SFP_MASK_SIGN	FP_MASK_SIGN
