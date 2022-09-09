@@ -26,10 +26,13 @@ test_fpscr(uint32_t (*func)(void), uint32_t expected, uint32_t ignored,
 		    expected, expected & mask);
 		printf("\tresult   0x%08x (0x%08x)\n",
 		    result, result & mask);
-	} else {
+	}
+#if 0
+	else {
 		printf("%s: passed 0x%08x (0x%08x)\n",
 		    name, result, result & mask);
 	}
+#endif
 }
 
 #define	TEST_RD(func, expected)	test_rd(func, expected, #func)
@@ -47,9 +50,12 @@ test_rd(double (*func)(void), double expected, const char *name)
 	result = func();
 	if (result != expected) {
 		printf("%s: FAILED %f != %f\n", name, result, expected);
-	} else {
+	}
+#if 0
+	else {
 		printf("%s: passed %f\n", name, result);
 	}
+#endif
 }
 
 static uint32_t
@@ -538,7 +544,7 @@ set_fx(void)
 
 	set_fpscr(true, FPSCR_FX);
 
-	printf("%s: passed\n", __func__);
+//	printf("%s: passed\n", __func__);
 }
 
 static const char *
@@ -835,9 +841,14 @@ round_double(void)
 }
 
 static void
-fres(double b)
+fres(uint32_t rn, uint64_t b)
 {
 	volatile double d, a = 1.0;
+
+	set_fpscr(false, 0xffffffff);
+	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */
+	set_fpscr(true, rn);
+	set_msr(false, MSR_FE_MASK);
 
 #if 1
 	__asm volatile (
@@ -852,20 +863,28 @@ fres(double b)
 		: [a] "f" (a), [b] "f" (b)
 	);
 #endif
-	printf("%s: 1 / %e ~ %e\n", __func__, b, d);
+	printf("%s: 1 / %e (0x%016llx) ~ %e (0x%016llx)\n", __func__,
+	    *(double *)&b, b, d, *(uint64_t *)&d);
 }
 
 static void
-frsqrte(double b)
+frsqrte(uint32_t rn, uint64_t b)
 {
 	volatile double d, a = 1.0;
+
+	set_fpscr(false, 0xffffffff);
+	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */
+	set_fpscr(true, rn);
+	set_msr(false, MSR_FE_MASK);
 
 	__asm volatile (
 		"frsqrte %[d],%[b];"
 		: [d] "=f" (d)
 		: [b] "f" (b)
 	);
-	printf("%s: 1 / sqrt(%e) ~ %e\n", __func__, b, d);
+	printf("%s: 1 / sqrt(%e) [1 / sqrt(0x%016llx)] ~\n"
+	    "\t%e (0x%016llx)\n", __func__,
+	    *(double *)&b, b, d, *(uint64_t *)&d);
 }
 
 #if 0
@@ -873,6 +892,10 @@ static void
 fmadd(double a, double b, double c)
 {
 	volatile double d;
+
+	set_fpscr(false, 0xffffffff);
+	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */
+	set_msr(false, MSR_FE_MASK);
 
 	__asm volatile(
 		"fmadd	%[d],%[a],%[b],%[c];"
@@ -887,6 +910,10 @@ fmsub(double a, double b, double c)
 {
 	volatile double d;
 
+	set_fpscr(false, 0xffffffff);
+	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */
+	set_msr(false, MSR_FE_MASK);
+
 	__asm volatile(
 		"fmsub	%[d],%[a],%[b],%[c];"
 		: [d] "=f" (d)
@@ -900,6 +927,10 @@ fnmadd(double a, double b, double c)
 {
 	volatile double d;
 
+	set_fpscr(false, 0xffffffff);
+	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */
+	set_msr(false, MSR_FE_MASK);
+
 	__asm volatile(
 		"fnmadd	%[d],%[a],%[b],%[c];"
 		: [d] "=f" (d)
@@ -912,6 +943,10 @@ static void
 fnmsub(double a, double b, double c)
 {
 	volatile double d;
+
+	set_fpscr(false, 0xffffffff);
+	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */
+	set_msr(false, MSR_FE_MASK);
 
 	__asm volatile(
 		"fnmsub	%[d],%[a],%[b],%[c];"
@@ -1068,31 +1103,36 @@ fcfid(int64_t i)
 	    i, i, d.fp, d.bin);
 }
 
-static void
-fadd_rn(uint32_t rn, uint64_t a, uint64_t b, uint64_t e, uint32_t e_f)
-{
-	volatile fp d, fpscr;
-
-	e_f |= rn;
-
-	set_fpscr(false, 0xffffffff);
-	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */
-	set_fpscr(true, rn);
-	set_msr(false, MSR_FE_MASK);
-
-	__asm volatile(
-		"fadd	%[d],%[a],%[b];"
-		"mffs	%[fpscr];"
-		: [d] "=f" (d), [fpscr] "=f" (fpscr)
-		: [a] "f" (a), [b] "f" (b)
-	);
-	if (d.bin != e)
-		printf("%s: FAILED val %e (0x%016llx) != %e (0x%016llx)\n",
-		    __func__, d.fp, d.bin, *(double *)&e, e);
-	if (fpscr.word[1] != e_f)
-		printf("%s: FAILED fpscr 0x%08x != 0x%08x\n",
-		    __func__, fpscr.word[1], e_f);
+#define	TEST_3OPS_RN(op)						\
+static void								\
+op ##_rn(uint32_t rn, uint64_t a, uint64_t b, uint64_t e, uint32_t e_f)	\
+{									\
+	volatile fp d, fpscr;						\
+									\
+	e_f |= rn;							\
+									\
+	set_fpscr(false, 0xffffffff);					\
+	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */		\
+	set_fpscr(true, rn);						\
+	set_msr(false, MSR_FE_MASK);					\
+									\
+	__asm volatile(							\
+		#op							\
+		"	%[d],%[a],%[b];"				\
+		"mffs	%[fpscr];"					\
+		: [d] "=f" (d), [fpscr] "=f" (fpscr)			\
+		: [a] "f" (a), [b] "f" (b)				\
+	);								\
+	if (d.bin != e)							\
+		printf("%s: FAILED val %e (0x%016llx) != %e (0x%016llx)\n", \
+		    __func__, d.fp, d.bin, *(double *)&e, e);		\
+	if (fpscr.word[1] != e_f)					\
+		printf("%s: FAILED fpscr 0x%08x != 0x%08x\n",		\
+		    __func__, fpscr.word[1], e_f);			\
 }
+
+TEST_3OPS_RN(fadd)
+TEST_3OPS_RN(fdiv)
 
 #define	FCMP_TEST(op)							\
 static void								\
@@ -1241,11 +1281,13 @@ main(void)
 
 	round_double();
 
-	fres(1.0);
-	fres(0.5);
+	fres(RN_RZ, FP_P1);
+	fres(RN_RZ, FP_P0_5);
+	fres(RN_RZ, FP_PZERO);
 
-	frsqrte(1.0);
-	frsqrte(0.5);
+	frsqrte(RN_RZ, FP_P1);
+	frsqrte(RN_RZ, FP_P0_5);
+	frsqrte(RN_RZ, FP_PZERO);
 
 #if 0
 	fmadd(1.0, 1.0, 1.0);
@@ -1341,6 +1383,15 @@ main(void)
 	fmadd(FP_SNAN, FP_QNAN_CPU, FP_QNAN1, FP_QNAN,
 	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
 
+	fadd(FP_P_DEN_MIN, FP_P_DEN_MIN, FP_P_DEN_MINx2, FPRF_C | FPRF_FG);
+	fsub(FP_P_DEN_MINx2, FP_P_DEN_MIN, FP_P_DEN_MIN, FPRF_C | FPRF_FG);
+	fmul(FP_P_DEN_MIN, FP_P2, FP_P_DEN_MINx2, FPRF_C | FPRF_FG);
+	fdiv(FP_P_DEN_MIN, FP_P0_5, FP_P_DEN_MINx2, FPRF_C | FPRF_FG);
+#if 0
+	fsqrt(FP_P_DEN_MIN, FP_SQRT_DEN_MIN, FPRF_FG);
+	fsqrt(FP_P_DEN_MINx9, FP_SQRT_DEN_MINx3, FPRF_FG);
+#endif
+
 	fadd_rn(RN_RN, FP_P1, FP_M1, FP_PZERO, FPRF_FE);
 	fadd_rn(RN_RZ, FP_P1, FP_M1, FP_PZERO, FPRF_FE);
 	fadd_rn(RN_RP, FP_P1, FP_M1, FP_PZERO, FPRF_FE);
@@ -1360,6 +1411,9 @@ main(void)
 	fadd_rn(RN_RZ, FP_MZERO, FP_MZERO, FP_MZERO, FPRF_C | FPRF_FE);
 	fadd_rn(RN_RP, FP_MZERO, FP_MZERO, FP_MZERO, FPRF_C | FPRF_FE);
 	fadd_rn(RN_RM, FP_MZERO, FP_MZERO, FP_MZERO, FPRF_C | FPRF_FE);
+
+	fdiv_rn(RN_RZ, FP_P1, FP_MZERO, FP_MINF,
+	    FPSCR_FX | FPSCR_ZX | FPRF_FL | FPRF_FU);
 
 	fcmpu(FP_P1, FP_P2, FPRF_FL, 0);
 	fcmpu(FP_P1, FP_M2, FPRF_FG, 0);
