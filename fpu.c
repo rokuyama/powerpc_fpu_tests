@@ -840,6 +840,7 @@ round_double(void)
 	    d.fp, d.bin, fpscr.word[1]);
 }
 
+#if 0
 static void
 fres(uint32_t rn, uint64_t b)
 {
@@ -886,6 +887,7 @@ frsqrte(uint32_t rn, uint64_t b)
 	    "\t%e (0x%016llx)\n", __func__,
 	    *(double *)&b, b, d, *(uint64_t *)&d);
 }
+#endif
 
 #if 0
 static void
@@ -957,7 +959,7 @@ fnmsub(double a, double b, double c)
 }
 #endif
 
-#define	TEST_2OPS(op)							\
+#define	TEST_2OP_D(op)							\
 static void								\
 op(uint64_t v, uint64_t e, int exp_fpscr)				\
 {									\
@@ -992,11 +994,16 @@ op(uint64_t v, uint64_t e, int exp_fpscr)				\
 	}								\
 }
 
-TEST_2OPS(fsqrt)
-TEST_2OPS(frsp)
-TEST_2OPS(frin)
+TEST_2OP_D(fsqrt)
+TEST_2OP_D(frsp)
+TEST_2OP_D(frin)
 
-#define	TEST_3OPS(op)							\
+TEST_2OP_D(fre)
+TEST_2OP_D(fres)	/* XXX TEST_2OP_S */
+TEST_2OP_D(frsqrte)
+TEST_2OP_D(frsqrtes)	/* XXX TEST_2OP_S */
+
+#define	TEST_3OP_D(op)							\
 static void								\
 op(uint64_t a, uint64_t b, uint64_t e, int exp_fpscr)			\
 {									\
@@ -1032,13 +1039,13 @@ op(uint64_t a, uint64_t b, uint64_t e, int exp_fpscr)			\
 	}								\
 }
 
-TEST_3OPS(fadd)
-TEST_3OPS(fsub)
-TEST_3OPS(fsubs)
-TEST_3OPS(fmul)
-TEST_3OPS(fdiv)
+TEST_3OP_D(fadd)
+TEST_3OP_D(fsub)
+TEST_3OP_D(fsubs)
+TEST_3OP_D(fmul)
+TEST_3OP_D(fdiv)
 
-#define	TEST_4OPS(op)							\
+#define	TEST_4OP_D(op)							\
 static void								\
 op(uint64_t a, uint64_t b, uint64_t c, uint64_t e, int exp_fpscr)	\
 {									\
@@ -1079,7 +1086,7 @@ op(uint64_t a, uint64_t b, uint64_t c, uint64_t e, int exp_fpscr)	\
 	}								\
 }
 
-TEST_4OPS(fmadd)
+TEST_4OP_D(fmadd)
 
 static void
 fcfid(int64_t i)
@@ -1103,7 +1110,7 @@ fcfid(int64_t i)
 	    i, i, d.fp, d.bin);
 }
 
-#define	TEST_3OPS_RN(op)						\
+#define	TEST_3OP_D_RN(op)						\
 static void								\
 op ##_rn(uint32_t rn, uint64_t a, uint64_t b, uint64_t e, uint32_t e_f)	\
 {									\
@@ -1131,8 +1138,9 @@ op ##_rn(uint32_t rn, uint64_t a, uint64_t b, uint64_t e, uint32_t e_f)	\
 		    __func__, fpscr.word[1], e_f);			\
 }
 
-TEST_3OPS_RN(fadd)
-TEST_3OPS_RN(fdiv)
+TEST_3OP_D_RN(fadd)
+TEST_3OP_D_RN(fmul)
+TEST_3OP_D_RN(fdiv)
 
 #define	FCMP_TEST(op)							\
 static void								\
@@ -1281,6 +1289,7 @@ main(void)
 
 	round_double();
 
+#if 0
 	fres(RN_RZ, FP_P1);
 	fres(RN_RZ, FP_P0_5);
 	fres(RN_RZ, FP_PZERO);
@@ -1288,6 +1297,7 @@ main(void)
 	frsqrte(RN_RZ, FP_P1);
 	frsqrte(RN_RZ, FP_P0_5);
 	frsqrte(RN_RZ, FP_PZERO);
+#endif
 
 #if 0
 	fmadd(1.0, 1.0, 1.0);
@@ -1391,6 +1401,76 @@ main(void)
 	fsqrt(FP_P_DEN_MIN, FP_SQRT_DEN_MIN, FPRF_FG);
 	fsqrt(FP_P_DEN_MINx9, FP_SQRT_DEN_MINx3, FPRF_FG);
 #endif
+
+#if 0
+	/* Even G5 does not implement this... */
+	fre(FP_MINF, FP_MZERO, FPRF_C | FPRF_FE);
+	fre(FP_MZERO, FP_MINF,
+	    FPSCR_FX | FPSCR_ZX | FPRF_FU | FPRF_FL);
+	fre(FP_PZERO, FP_PINF,
+	    FPSCR_FX | FPSCR_ZX | FPRF_FU | FPRF_FG);
+	fre(FP_PINF, FP_PZERO, FPRF_FE);
+	fre(FP_SNAN, FP_QNAN,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+	fre(FP_QNAN, FP_QNAN, FPRF_C | FPRF_FU);
+#endif
+
+	fres(FP_MINF, FP_MZERO, FPRF_C | FPRF_FE);
+	fres(FP_MZERO, FP_MINF,
+	    FPSCR_FX | FPSCR_ZX | FPRF_FU | FPRF_FL);
+	fres(FP_PZERO, FP_PINF,
+	    FPSCR_FX | FPSCR_ZX | FPRF_FU | FPRF_FG);
+	fres(FP_PINF, FP_PZERO, FPRF_FE);
+	fres(FP_SNAN1, FP_QNAN1 & 0xffffffffe0000000ULL,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+	fres(FP_QNAN1, FP_QNAN1 & 0xffffffffe0000000ULL, FPRF_C | FPRF_FU);
+
+	frsqrte(FP_MINF, FP_QNAN_CPU,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSQRT | FPRF_C | FPRF_FU);
+	frsqrte(FP_M2, FP_QNAN_CPU,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSQRT | FPRF_C | FPRF_FU);
+	frsqrte(FP_MZERO, FP_MINF,
+	    FPSCR_FX | FPSCR_ZX | FPRF_FU | FPRF_FL);
+	frsqrte(FP_PZERO, FP_PINF,
+	    FPSCR_FX | FPSCR_ZX | FPRF_FU | FPRF_FG);
+	frsqrte(FP_PINF, FP_PZERO, FPRF_FE);
+	frsqrte(FP_SNAN, FP_QNAN,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+	frsqrte(FP_QNAN, FP_QNAN, FPRF_C | FPRF_FU);
+
+#if 0
+	/* Even G5 does not implement this... */
+	frsqrtes(FP_MINF, FP_QNAN_CPU,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSQRT | FPRF_C | FPRF_FU);
+	frsqrtes(FP_M2, FP_QNAN_CPU,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSQRT | FPRF_C | FPRF_FU);
+	frsqrtes(FP_MZERO, FP_MINF,
+	    FPSCR_FX | FPSCR_ZX | FPRF_FU | FPRF_FL);
+	frsqrtes(FP_PZERO, FP_PINF,
+	    FPSCR_FX | FPSCR_ZX | FPRF_FU | FPRF_FG);
+	frsqrtes(FP_PINF, FP_PZERO, FPRF_FE);
+	frsqrtes(FP_SNAN1, FP_QNAN1 & 0xffffffffe0000000ULL,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+	frsqrtes(FP_QNAN1, FP_QNAN1 & 0xffffffffe0000000ULL, FPRF_C | FPRF_FU);
+#endif
+
+	fmul(FP_P_DEN_MIN, FP_P0_5, FP_PZERO,
+	    FPSCR_FX | FPSCR_UX | FPSCR_XX | FPSCR_FI | FPRF_FE);
+	fmul(FP_P_DEN_MINx3, FP_P0_5, FP_P_DEN_MINx2 /* RN */,
+	    FPSCR_FX | FPSCR_UX | FPSCR_XX | FPSCR_FR | FPSCR_FI |
+	    FPRF_C | FPRF_FG);
+	fmul_rn(RN_RZ, FP_P_DEN_MINx3, FP_P0_5, FP_P_DEN_MIN,
+	    FPSCR_FX | FPSCR_UX | FPSCR_XX | FPSCR_FI |
+	    FPRF_C | FPRF_FG);
+
+	fmul_rn(RN_RN, FP_P_NORM_MAX, FP_P2, FP_PINF,
+	    FPSCR_FX | FPSCR_OX | FPSCR_XX | FPSCR_FI | FPRF_FG | FPRF_FU);
+	fmul_rn(RN_RZ, FP_P_NORM_MAX, FP_P2, FP_P_NORM_MAX,
+	    FPSCR_FX | FPSCR_OX | FPSCR_XX | FPSCR_FI | FPRF_FG);
+	fmul_rn(RN_RP, FP_P_NORM_MAX, FP_P2, FP_PINF,
+	    FPSCR_FX | FPSCR_OX | FPSCR_XX | FPSCR_FI | FPRF_FG | FPRF_FU);
+	fmul_rn(RN_RM, FP_P_NORM_MAX, FP_P2, FP_P_NORM_MAX,
+	    FPSCR_FX | FPSCR_OX | FPSCR_XX | FPSCR_FI | FPRF_FG);
 
 	fadd_rn(RN_RN, FP_P1, FP_M1, FP_PZERO, FPRF_FE);
 	fadd_rn(RN_RZ, FP_P1, FP_M1, FP_PZERO, FPRF_FE);

@@ -7,9 +7,9 @@
 
 /* Double-Precision in FPR */
 
-#define	FP_MASK_SIGN	__BIT(63)
-#define	FP_MASK_EXP	__BITS(52, 62)
-#define	FP_MASK_FRAC	__BITS(0, 51)
+#define	FP_MASK_SIGN	__BIT(63)	/* 0x8000000000000000ULL */
+#define	FP_MASK_EXP	__BITS(52, 62)	/* 0x7ff0000000000000ULL */
+#define	FP_MASK_FRAC	__BITS(0, 51)	/* 0x000fffffffffffffULL */
 
 #define	FP_SIGN		FP_MASK_SIGN
 
@@ -35,6 +35,9 @@
 #define	FP_P2		0x4000000000000000ULL
 #define	FP_M2		(FP_SIGN | FP_P2)
 
+#define	FP_P1_DELTA	0x3ff0000000000001ULL
+#define	FP_M1_DELTA	(FP_SIGN | FP_P1_DELTA)
+
 #define	FP_P_DEN_MIN	0x0000000000000001ULL
 #define	FP_M_DEN_MIN	(FP_SIGN | FP_P_DEN_MIN)
 
@@ -50,6 +53,9 @@
 #define	FP_SQRT_DEN_MIN		0x1e60000000000000ULL
 #define	FP_SQRT_DEN_MINx3	0x1e78000000000000ULL
 
+#define	FP_P_NORM_MAX	0x7fefffffffffffffULL
+#define	FP_M_NORM_MAX	(FP_SIGN | FP_P_NORM_MAX)
+
 #define	FP_ISNAN(u64)							\
     (((u64) & FP_MASK_EXP) == FP_MASK_EXP && ((u64) & FP_MASK_FRAC) != 0)
 #define	FP_ISQNAN(u64)	(FP_ISNAN(u64) && ((u64) & FP_QNAN_BIT) != 0)
@@ -58,20 +64,60 @@
 #define	FP_ISINF(u64)							\
     (((u64) & FP_MASK_EXP) == FP_MASK_EXP && ((u64) & FP_MASK_FRAC) == 0)
 
-/* Single-Precision in FPR */
+/* Single-Precision in memory */
 
-#define	SFP_MASK_SIGN	FP_MASK_SIGN
-#define	SFP_MASK_EXP	FP_MASK_EXP			/* XXX */
-#define	SFP_MASK_FRAC	__BITS(29, 51)
+#define	SFP_MASK_SIGN		__BIT(31)	/* 0x80000000U */
+#define	SFP_SIGN		SFP_MASK_SIGN
+#define	SFP_MASK_EXP		__BITS(30, 23)	/* 0x7f800000U */
+#define	SFP_MASK_FRAC		__BITS(22, 0)	/* 0x007fffffU */
 
-#define	SFP_PZERO	0ULL
-#define	SFP_MZERO	(SFP_MASK_SIGN | SFP_PZERO)
+#define	SFP_PZERO		0U
+#define	SFP_MZERO		(SFP_SIGN | SFP_PZERO)
 
-#define	SFP_PINF	SFP_MASK_EXP
-#define	SFP_MINF	(SFP_MASK_SIGN | SFP_PINF)
+#define	SFP_PINF		SFP_MASK_EXP
+#define	SFP_MINF		(SFP_SIGN | SFP_PINF)
 
-#define	SFP_QNAN	(SFP_MASK_EXP | __BITS(29, 51)) /* XXX */
-#define	SFP_SNAN	(SFP_MASK_EXP | __BITS(29, 50))	/* XXX */
+#if 0
+#define	FP_SNAN		(FP_MASK_EXP | 0x0007deadbeef1234)	/* XXX */
+#define	FP_SNAN1	(FP_MASK_EXP | 0x0007ffffffffffff)	/* XXX */
+#define	FP_QNAN_BIT	__BIT(51)
+#define	FP_QNAN_CPU	(FP_MASK_EXP | FP_QNAN_BIT)
+#define	FP_QNAN		(FP_SNAN | FP_QNAN_BIT)
+#define	FP_QNAN1	(FP_SNAN1 | FP_QNAN_BIT)
+#endif
+
+#define	SFP_SNAN		(SFP_MASK_EXP | 0x003deadbU)
+#define	SFP_SNAN1		(SFP_MASK_EXP | 0x003fffffU)
+#define	SFP_QNAN_BIT		__BIT(22)
+#define	SFP_QNAN_CPU		(SFP_MASK_EXP | SFP_QNAN_BIT)
+#define	SFP_QNAN		(SFP_SNAN | SFP_QNAN_BIT)
+#define	SFP_QNAN1		(SFP_SNAN1 | SFP_QNAN_BIT)
+
+#define	SFP_P1			0x3f800000U
+#define	SFP_M1			(SFP_SIGN | SFP_P1)
+
+#define	SFP_P0_5		0x3f000000U
+#define	SFP_M0_5		(SFP_SIGN | SFP_P0_5)
+
+#define	SFP_P2			0x40000000U
+#define	SFP_M2			(SFP_SIGN | SFP_P2)
+
+#define	SFP_P1_DELTA		0x3f800001U
+#define	SFP_M1_DELTA		(SFP_SIGN | SFP_P1_DELTA)
+
+#define	SFP_P_DEN_MIN		0x00000001U
+#define	SFP_M_DEN_MIN		(SFP_SIGN | SFP_P_DEN_MIN)
+
+#define	SFP_P_DEN_MINx2		0x00000002U
+#define	SFP_M_DEN_MINx2		(SFP_SIGN | SFP_P_DEN_MIN)
+
+#define	SFP_P_DEN_MINx3		0x00000003U
+#define	SFP_M_DEN_MINx3		(SFP_SIGN | SFP_P_DEN_MIN)
+
+#define	SFP_P_DEN_MINx9		0x00000009U
+#define	SFP_M_DEN_MINx9		(SFP_SIGN | SFP_P_DEN_MIN)
+
+#define	SFP_SQRT_DEN_MINx2	0x1a800000U
 
 /* FPSCR bits */
 
