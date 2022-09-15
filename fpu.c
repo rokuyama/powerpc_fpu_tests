@@ -1087,6 +1087,8 @@ op(uint64_t a, uint64_t b, uint64_t c, uint64_t e, int exp_fpscr)	\
 }
 
 TEST_4OP_D(fmadd)
+TEST_4OP_D(fnmadd)
+TEST_4OP_D(fnmsub)
 
 static void
 fcfid(int64_t i)
@@ -1181,6 +1183,54 @@ op(uint64_t a, uint64_t b, uint32_t ecc, uint32_t efpscr)		\
 
 FCMP_TEST(fcmpu)
 FCMP_TEST(fcmpo)
+
+static void
+stfs(uint64_t val, uint32_t exp)
+{
+	fp fp;
+	fp.bin = val;
+	uint32_t ret, *p = &ret;
+
+	set_fpscr(false, 0xffffffff);
+	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */
+	set_msr(false, MSR_FE_MASK);
+
+	__asm volatile(
+		"stfs %[val],0(%[p]);"
+		:
+		: [val] "f" (val), [p] "b" (p)
+		:
+	);
+	if (ret != exp)
+		printf("%s: %e (0x%016llx) FAILED\n"
+		    "\t%e (0x%08x) != %e (0x%08x)\n", __func__, fp.fp, fp.bin,
+		    *(float *)&ret, ret, *(float *)&exp, exp);
+}
+
+static void
+lfs(uint32_t val, uint64_t exp)
+{
+	sfp sfp;
+	sfp.bin = val;
+	uint64_t ret;
+	uint32_t *p = &sfp.bin;
+
+	set_fpscr(false, 0xffffffff);
+	set_fpscr(false, FPSCR_ENABLE_MASK);	/* XXXRO */
+	set_msr(false, MSR_FE_MASK);
+
+	__asm volatile(
+		"lfs %[ret],0(%[p]);"
+		: [ret] "=&f" (ret)
+		: [p] "b" (p)
+		:
+	);
+	if (ret != exp)
+		printf("%s: %e (0x%08x) FAILED\n"
+		    "\t%e (0x%016llx) != %e (0x%016llx)\n", __func__,
+		    sfp.sfp, sfp.bin,
+		    *(double *)&ret, ret, *(double *)&exp, exp);
+}
 
 int
 main(void)
@@ -1393,6 +1443,13 @@ main(void)
 	fmadd(FP_SNAN, FP_QNAN_CPU, FP_QNAN1, FP_QNAN,
 	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
 
+	fnmadd(FP_P1, FP_P1, FP_QNAN, FP_QNAN, FPRF_C | FPRF_FU);
+	fnmsub(FP_P1, FP_P1, FP_QNAN, FP_QNAN, FPRF_C | FPRF_FU);
+	fnmadd(FP_P1, FP_P1, FP_SNAN, FP_QNAN,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+	fnmsub(FP_P1, FP_P1, FP_SNAN, FP_QNAN,
+	    FPSCR_FX | FPSCR_VX | FPSCR_VXSNAN | FPRF_C | FPRF_FU);
+
 	fadd(FP_P_DEN_MIN, FP_P_DEN_MIN, FP_P_DEN_MINx2, FPRF_C | FPRF_FG);
 	fsub(FP_P_DEN_MINx2, FP_P_DEN_MIN, FP_P_DEN_MIN, FPRF_C | FPRF_FG);
 	fmul(FP_P_DEN_MIN, FP_P2, FP_P_DEN_MINx2, FPRF_C | FPRF_FG);
@@ -1540,6 +1597,49 @@ main(void)
 	fcfid(0x12345678deadbeefULL);
 	fcfid(0x92345678deadbeefULL);
 #endif
+
+	stfs(FP_P1, SFP_P1);
+	stfs(FP_M1, SFP_M1);
+	stfs(FP_PZERO, SFP_PZERO);
+	stfs(FP_MZERO, SFP_MZERO);
+	stfs(FP_PINF, SFP_PINF);
+	stfs(FP_MINF, SFP_MINF);
+	stfs(FP_QNAN, SFP_MASK_EXP | __SHIFTOUT(FP_QNAN, __BITS(51, 29)));
+	stfs(FP_QNAN | FP_SIGN,
+	    SFP_SIGN | SFP_MASK_EXP | __SHIFTOUT(FP_QNAN, __BITS(51, 29)));
+	stfs(__SHIFTIN(896, __BITS(62, 52)), __BIT(22));
+	stfs(__SHIFTIN(874, __BITS(62, 52)), 1);
+	stfs(FP_SIGN | __SHIFTIN(896, __BITS(62, 52)), SFP_SIGN | __BIT(22));
+	stfs(FP_SIGN | __SHIFTIN(874, __BITS(62, 52)), SFP_SIGN | 1);
+
+	stfs(FP_P1 | __BITS(28, 0), SFP_P1);
+	stfs(FP_SIGN | FP_P1 | __BITS(28, 0), SFP_SIGN | SFP_P1);
+	stfs(FP_P_NORM_MAX, FP_NORM_TO_SINGLE(FP_P_NORM_MAX));
+	stfs(FP_SIGN | FP_P_NORM_MAX,
+	    FP_NORM_TO_SINGLE(FP_SIGN | FP_P_NORM_MAX));
+
+#if 0
+	/* undefined */
+	stfs(__SHIFTIN(873, __BITS(62, 52)), 0x34800000U);
+	stfs(__SHIFTIN(872, __BITS(62, 52)), 0x34000000U);
+	stfs(FP_P_DEN_MIN, 0x00800000U);
+	stfs(FP_P_DEN_MINx9, 0x00800000U);
+#endif
+
+	lfs(SFP_P1, FP_P1);
+	lfs(SFP_M1, FP_M1);
+	lfs(SFP_PZERO, FP_PZERO);
+	lfs(SFP_MZERO, FP_MZERO);
+	lfs(SFP_PINF, FP_PINF);
+	lfs(SFP_MINF, FP_MINF);
+	lfs(SFP_QNAN,
+	    FP_MASK_EXP | (__SHIFTOUT(SFP_QNAN, SFP_MASK_FRAC) << (51 - 22)));
+	lfs(SFP_SIGN | SFP_QNAN,
+	    FP_SIGN | FP_MASK_EXP |
+	    (__SHIFTOUT(SFP_QNAN, SFP_MASK_FRAC) << (51 - 22)));
+	lfs(SFP_P_DEN_MIN, __SHIFTIN(- 126 - 23 + 1023, FP_MASK_EXP));
+	lfs(SFP_SIGN | SFP_P_DEN_MIN,
+	    FP_SIGN | __SHIFTIN(- 126 - 23 + 1023, FP_MASK_EXP));
 
 	return 0;
 }

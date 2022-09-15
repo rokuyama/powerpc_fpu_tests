@@ -56,6 +56,13 @@
 #define	FP_P_NORM_MAX	0x7fefffffffffffffULL
 #define	FP_M_NORM_MAX	(FP_SIGN | FP_P_NORM_MAX)
 
+#define	FP_NORM_TO_SINGLE(u)						\
+    (									\
+	(((u) & FP_SIGN) ? SFP_SIGN : 0) |				\
+	(((u) & __BIT(62)) ? __BIT(30) : 0) |				\
+	__SHIFTOUT(u, __BITS(58, 29))					\
+    )
+
 #define	FP_ISNAN(u64)							\
     (((u64) & FP_MASK_EXP) == FP_MASK_EXP && ((u64) & FP_MASK_FRAC) != 0)
 #define	FP_ISQNAN(u64)	(FP_ISNAN(u64) && ((u64) & FP_QNAN_BIT) != 0)
@@ -197,6 +204,12 @@ typedef union fp {
 	uint64_t bin;
 	uint32_t word[2];
 } fp;
+
+typedef union sfp {
+	float sfp;
+	uint32_t bin;
+	uint32_t word;
+} sfp;
 
 static inline uint32_t
 mfmsr(void)
