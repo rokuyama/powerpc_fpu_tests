@@ -312,7 +312,7 @@ raise_sox(void)
 		"stfs	%[d],0(%[dp]);"
 		: [a] "=f" (tmpa), [b] "=f" (tmpb), [d] "=f" (tmpd),
 		  [fpscr] "=f" (fpscr.fp)
-		: [ap] "r" (ap), [bp] "r" (bp), [dp] "r" (dp)
+		: [ap] "b" (ap), [bp] "b" (bp), [dp] "b" (dp)
 	);
 
 	printf("%s: %e (0x%08x)\n", __func__, d, *(uint32_t *)dp);
@@ -749,7 +749,7 @@ fctid(double val, int64_t exp_rn, int64_t exp_rz, int64_t exp_rp, int64_t exp_rm
 			"mffs	%[fpscr];"
 			"stfd	%[d],0(%[ip]);"
 			: [d] "=f" (d), [fpscr] "=f" (fpscr.fp)
-			: [b] "f" (b), [ip] "r" (ip)
+			: [b] "f" (b), [ip] "b" (ip)
 			: "memory"
 		);
 		if (i != exp[rn])
@@ -779,7 +779,7 @@ fctid(double val, int64_t exp_rn, int64_t exp_rz, int64_t exp_rp, int64_t exp_rm
 			"mffs	%[fpscr];"
 			"stfd	%[d],0(%[ip]);"
 			: [d] "=f" (d), [fpscr] "=f" (fpscr.fp)
-			: [b] "f" (b), [ip] "r" (ip)
+			: [b] "f" (b), [ip] "b" (ip)
 			: "memory"
 		);
 		if (i != exp_rz)
@@ -1106,7 +1106,7 @@ fcfid(int64_t i)
 		"lfd	%[b],0(%[p]);"
 		"fcfid	%[d],%[b];"
 		: [b] "=f" (b.fp), [d] "=f" (d.fp)
-		: [p] "r" (p)
+		: [p] "b" (p)
 	);
 	printf("%s: %lld (0x%016llx) -> %e (0x%016llx)\n", __func__,
 	    i, i, d.fp, d.bin);
@@ -1619,11 +1619,16 @@ main(void)
 	    FP_NORM_TO_SINGLE(FP_SIGN | FP_P_NORM_MAX));
 
 #if 0
-	/* undefined */
+	/* undefined, G5 seems to round them to sign|0. */
 	stfs(__SHIFTIN(873, __BITS(62, 52)), 0x34800000U);
 	stfs(__SHIFTIN(872, __BITS(62, 52)), 0x34000000U);
 	stfs(FP_P_DEN_MIN, 0x00800000U);
 	stfs(FP_P_DEN_MINx9, 0x00800000U);
+
+	stfs(FP_SIGN | __SHIFTIN(873, __BITS(62, 52)), SFP_SIGN | 0x34800000U);
+	stfs(FP_SIGN | __SHIFTIN(872, __BITS(62, 52)), SFP_SIGN | 0x34000000U);
+	stfs(FP_SIGN | FP_P_DEN_MIN, SFP_SIGN | 0x00800000U);
+	stfs(FP_SIGN | FP_P_DEN_MINx9, SFP_SIGN | 0x00800000U);
 #endif
 
 	lfs(SFP_P1, FP_P1);
